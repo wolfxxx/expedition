@@ -1,0 +1,17 @@
+{
+  "dimensions": {
+    "length": 4.599812361001968,
+    "width": 2.1799999999999997,
+    "height": 2.293276655016527,
+    "bodyWidth": 1.66
+  },
+  "hostChildren": [
+    "HemisphereLight",
+    "DirectionalLight",
+    "DirectionalLight",
+    "DirectionalLight",
+    "Group"
+  ],
+  "draws": 104,
+  "errors": []
+}

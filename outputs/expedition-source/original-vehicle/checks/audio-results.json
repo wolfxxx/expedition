@@ -1,0 +1,52 @@
+{
+  "before": {
+    "state": "off",
+    "context": "not-created",
+    "activeNodes": 0,
+    "throttle": 0,
+    "playbackRate": 0,
+    "disposed": false
+  },
+  "idle": {
+    "diagnostics": {
+      "state": "idle",
+      "context": "running",
+      "activeNodes": 14,
+      "throttle": 0,
+      "playbackRate": 1,
+      "disposed": false
+    },
+    "rms": 0.04084728582912462
+  },
+  "rev": {
+    "diagnostics": {
+      "state": "idle",
+      "context": "running",
+      "activeNodes": 14,
+      "throttle": 0.9,
+      "playbackRate": 3.8968634605407715,
+      "disposed": false
+    },
+    "rms": 0.05929487324056286
+  },
+  "stop": {
+    "diagnostics": {
+      "state": "off",
+      "context": "running",
+      "activeNodes": 0,
+      "throttle": 0.9,
+      "playbackRate": 0,
+      "disposed": false
+    },
+    "rms": 0
+  },
+  "disposed": {
+    "state": "off",
+    "context": "closed",
+    "activeNodes": 0,
+    "throttle": 0.9,
+    "playbackRate": 0,
+    "disposed": true
+  },
+  "errors": []
+}

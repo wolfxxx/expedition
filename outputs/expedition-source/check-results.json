@@ -1,0 +1,289 @@
+{
+  "results": [
+    {
+      "name": "Real skinned human loaded",
+      "pass": true
+    },
+    {
+      "name": "Head above hips",
+      "pass": true
+    },
+    {
+      "name": "Feet below hips",
+      "pass": true
+    },
+    {
+      "name": "Run animation selected",
+      "pass": true
+    },
+    {
+      "name": "Walking changes position",
+      "pass": true
+    },
+    {
+      "name": "Driver side reachable on foot",
+      "pass": true
+    },
+    {
+      "name": "Preparation lowers hips",
+      "pass": true
+    },
+    {
+      "name": "Preparation keeps feet planted",
+      "pass": true
+    },
+    {
+      "name": "Jump has grounded anticipation",
+      "pass": true
+    },
+    {
+      "name": "Jump lifts character",
+      "pass": true
+    },
+    {
+      "name": "Jump elbows stay near torso",
+      "pass": true
+    },
+    {
+      "name": "Jump elbows stay below shoulders",
+      "pass": true
+    },
+    {
+      "name": "Cannot enter while airborne",
+      "pass": true
+    },
+    {
+      "name": "Jump lands",
+      "pass": true
+    },
+    {
+      "name": "Entry reaches for handle before climbing",
+      "pass": true
+    },
+    {
+      "name": "Door clears opening before climb",
+      "pass": true
+    },
+    {
+      "name": "Entry knees respect flexion limits",
+      "pass": true
+    },
+    {
+      "name": "Entry knees bend forward",
+      "pass": true
+    },
+    {
+      "name": "Enter attaches seated character to car",
+      "pass": true
+    },
+    {
+      "name": "Seated knees ahead of hips",
+      "pass": true
+    },
+    {
+      "name": "Throttle moves Jeep",
+      "pass": true
+    },
+    {
+      "name": "Cannot exit moving car",
+      "pass": true
+    },
+    {
+      "name": "Cockpit camera toggles",
+      "pass": true
+    },
+    {
+      "name": "Handbrake stops Jeep",
+      "pass": true
+    },
+    {
+      "name": "Exit knees bend forward within limits",
+      "pass": true
+    },
+    {
+      "name": "Exit restores walking",
+      "pass": true
+    },
+    {
+      "name": "Walking after exit works",
+      "pass": true
+    },
+    {
+      "name": "Golden hour toggles",
+      "pass": true
+    },
+    {
+      "name": "Reset restores spawn",
+      "pass": true
+    },
+    {
+      "name": "Reset button cancels airborne motion",
+      "pass": true
+    },
+    {
+      "name": "Reset restores standing feet",
+      "pass": true
+    }
+  ],
+  "final": {
+    "mode": "walking",
+    "speed": 0,
+    "steer": 0,
+    "yaw": 0,
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "humanPosition": [
+      2.5,
+      0,
+      -4
+    ],
+    "humanLocal": [
+      2.5,
+      0,
+      -4
+    ],
+    "humanInCar": false,
+    "pose": {
+      "stride": 20.500000000000117,
+      "seated": 0,
+      "model": "Rocketbox outdoor ranger",
+      "loaded": true,
+      "animation": "Idle",
+      "bones": 80,
+      "joints": {
+        "Hips": [
+          0,
+          0.8730563261774517,
+          -2.6503332861693707e-10
+        ],
+        "Head": [
+          -0.004636046562243479,
+          1.5493092880494705,
+          0.00641528367641353
+        ],
+        "LeftHand": [
+          0.25697488458769957,
+          0.8529536679211069,
+          0.0222786576605305
+        ],
+        "RightHand": [
+          -0.27248163620876786,
+          0.8618874569145777,
+          0.02932982572955911
+        ],
+        "LeftArm": [
+          0.19392488261388507,
+          1.3789675734753648,
+          -0.03010320895503149
+        ],
+        "RightArm": [
+          -0.21233509990362376,
+          1.3900118857581276,
+          -0.02720977435385663
+        ],
+        "LeftForeArm": [
+          0.2345764752058841,
+          1.1039795275054338,
+          -0.05955754526627022
+        ],
+        "RightForeArm": [
+          -0.2500530705281663,
+          1.1139211917811744,
+          -0.04933808122689598
+        ],
+        "LeftUpLeg": [
+          0.08430663245864833,
+          0.8758526238738392,
+          -0.0001254997472708297
+        ],
+        "RightUpLeg": [
+          -0.08845576168747948,
+          0.8700630575458248,
+          -0.0007323958447562617
+        ],
+        "LeftLeg": [
+          0.0915061734920779,
+          0.4860168025796772,
+          0.01710429978872252
+        ],
+        "RightLeg": [
+          -0.12492407043036069,
+          0.4886384798083182,
+          0.07347092157990431
+        ],
+        "LeftFoot": [
+          0.09298209581693584,
+          0.10008082528151091,
+          -0.0227217107394182
+        ],
+        "RightFoot": [
+          -0.14293793571239832,
+          0.10317264675284177,
+          0.03314430639635457
+        ]
+      }
+    },
+    "nearDoor": false,
+    "cameraView": "chase",
+    "muted": false,
+    "audio": {
+      "state": "off",
+      "context": "not-created",
+      "activeNodes": 0,
+      "throttle": 0,
+      "playbackRate": 0,
+      "disposed": false
+    },
+    "panels": {
+      "passenger": {
+        "open": false,
+        "value": 0,
+        "angle": 0
+      },
+      "driver": {
+        "open": false,
+        "value": 0,
+        "angle": 0
+      },
+      "rear": {
+        "open": false,
+        "value": 0,
+        "angle": 0
+      },
+      "hood": {
+        "open": false,
+        "value": 0,
+        "angle": 0
+      }
+    },
+    "wheels": {
+      "frontRight": {
+        "spin": 0,
+        "steer": 0
+      },
+      "rearRight": {
+        "spin": 0,
+        "steer": 0
+      },
+      "frontLeft": {
+        "spin": 0,
+        "steer": 0
+      },
+      "rearLeft": {
+        "spin": 0,
+        "steer": 0
+      }
+    },
+    "colliders": 320,
+    "drawCalls": 205,
+    "triangles": 335480,
+    "discovered": [],
+    "jumpHeight": 0,
+    "goldenHour": true,
+    "jumpPhase": "grounded",
+    "transition": null
+  }
+}

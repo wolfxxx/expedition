@@ -1,0 +1,11 @@
+{
+  "name": "expedition-4x4",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Procedural articulated expedition vehicle; Three.js r180 bundled locally",
+  "scripts": {
+    "start": "node serve.mjs",
+    "check": "node --check vehicle.js && node --check exterior.js && node --check interior.js && node --check weathering.js && node --check batching.js && node --check engine-audio.js && node --check demo.js && node --check serve.mjs"
+  }
+}

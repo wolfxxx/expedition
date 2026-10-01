@@ -1,0 +1,62 @@
+{
+  "noAutoplay": {
+    "state": "off",
+    "context": "not-created",
+    "activeNodes": 0,
+    "throttle": 0,
+    "playbackRate": 0,
+    "disposed": false
+  },
+  "lights": 0,
+  "cameras": 0,
+  "panels": {
+    "passenger": {
+      "open": true,
+      "value": 1,
+      "angle": 1.24
+    },
+    "driver": {
+      "open": true,
+      "value": 1,
+      "angle": -1.24
+    },
+    "rear": {
+      "open": true,
+      "value": 1,
+      "angle": -1.45
+    },
+    "hood": {
+      "open": true,
+      "value": 1,
+      "angle": -1.13
+    }
+  },
+  "interaction": {
+    "handled": true,
+    "toggled": true,
+    "targets": 4
+  },
+  "render": {
+    "triangles": 133420,
+    "calls": 105
+  },
+  "canvas": {
+    "width": 1440,
+    "height": 1000
+  },
+  "mobile": {
+    "overflow": false,
+    "canvas": {
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "height": 633,
+      "top": 0,
+      "right": 390,
+      "bottom": 633,
+      "left": 0
+    }
+  },
+  "errors": [],
+  "networkRequests": []
+}

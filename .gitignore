@@ -1,0 +1,9 @@
+/work/
+node_modules/
+__pycache__/
+*.pyc
+*.blend1
+/outputs/*.zip
+/outputs/*preview.png
+/outputs/expedition-source/checks.html
+/outputs/expedition-source/Expedition-Wildhaven.html

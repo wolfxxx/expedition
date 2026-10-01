@@ -1,0 +1,1 @@
+[{"name":"Water outer edge buried under bank (128 directions)","pass":true,"clearance":0.5499999999999999},{"name":"Walking collision stays on dry ground (128 directions)","pass":true,"clearance":0.4045692754320038},{"name":"Jeep blocked from water","pass":true},{"name":"Water has no cylinder rim","pass":true}]

@@ -1,0 +1,11 @@
+{
+  "name": "wildhaven-human-runtime",
+  "private": true,
+  "scripts": {
+    "build:human": "node build-runtime.cjs"
+  },
+  "devDependencies": {
+    "esbuild-wasm": "0.28.2",
+    "three": "0.180.0"
+  }
+}
