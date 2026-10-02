@@ -62,4 +62,14 @@ key('KeyL',true);key('KeyL',false);check('Golden hour toggles',expedition.getSta
 expedition.reset();check('Reset restores spawn',Math.abs(expedition.getState().humanPosition[0]-2.5)<.01);
 key('Space',true);key('Space',false);expedition.advance(.3);document.getElementById('resetBtn').click();check('Reset button cancels airborne motion',expedition.getState().jumpPhase==='grounded'&&expedition.getState().jumpHeight===0);
 check('Reset restores standing feet',expedition.getState().pose.joints.LeftFoot[1]<.14&&expedition.getState().pose.joints.RightFoot[1]<.14);
-const report=document.createElement('pre');report.id='test-results';report.style='position:absolute;inset:20px;background:#10271fee;color:white;z-index:999;padding:20px;overflow:auto';report.textContent=JSON.stringify({results,final:expedition.getState()},null,2);document.body.append(report);
+expedition.reset();
+let previousHands=expedition.getState().pose.joints,maxHandStep=0;
+key('Space',true);key('Space',false);
+for(let frame=0;frame<75;frame++){
+ expedition.advance(1/60);const joints=expedition.getState().pose.joints;
+ for(const side of ['LeftHand','RightHand']){const step=Math.hypot(...joints[side].map((v,i)=>v-previousHands[side][i]));if(step>maxHandStep){maxHandStep=step;window.armDiagnostic={frame,step,side,before:previousHands[side],after:joints[side],phase:expedition.getState().jumpPhase};}}
+ previousHands=joints;
+}
+check('Jump hands blend continuously through takeoff and landing',maxHandStep<.09);
+expedition.reset();
+const report=document.createElement('pre');report.id='test-results';report.style='position:absolute;inset:20px;background:#10271fee;color:white;z-index:999;padding:20px;overflow:auto';report.textContent=JSON.stringify({armDiagnostic:window.armDiagnostic,results,final:expedition.getState()},null,2);document.body.append(report);

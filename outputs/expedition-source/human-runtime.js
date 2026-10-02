@@ -111,6 +111,16 @@ export function create(encoded) {
     if(!loaded)return;motionLabel=spec.label||null;
     visual.position.y=-(spec.drop||0);root.updateMatrixWorld(true);
     tilt('Spine',spec.lean||0);tilt('Neck',-(spec.lean||0)*.45);
+    // Jump arms use modest joint rotations over the relaxed animation pose.
+    // No hand targets or elbow poles: wrists retain their natural local rotation.
+    if(spec.jumpArms){
+      const {swing,flex,weight}=spec.jumpArms;
+      for(const side of ['Left','Right']){
+        const variation=side==='Left'?1:.88;
+        tilt(side+'Arm',-swing*weight*variation);
+        tilt(side+'ForeArm',-flex*weight*variation);
+      }
+    }
     for(const [side,sign] of [['Left',1],['Right',-1]]){
       const foot=spec.feet?.[side],hand=spec.hands?.[side];
       if(foot){const target=new THREE.Vector3(...foot.position);if(foot.world)root.worldToLocal(target);

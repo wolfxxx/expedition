@@ -4,7 +4,7 @@ const ease=(a,b,t)=>{const u=Mn((t-a)/(b-a),0,1);return u*u*(3-2*u);};
 const lerpPoint=(a,b,t)=>a.clone().lerp(b,t);
 const contact=(point,weight=1)=>({position:point.toArray(),world:true,weight});
 const localContact=(x,y,z)=>({position:[x,y,z]});
-let jumpPhase='grounded',jumpTime=0,jumpY=0,jumpMomentum=new L(),jumpAnchors=null;
+let jumpPhase='grounded',jumpTime=0,jumpY=0,jumpMomentum=new L(),jumpAnchors=null,jumpArmSwing=0,jumpArmFlex=0,jumpArmWeight=0;
 function groundFeet(){
   const pose=Xt.getPose().joints;Xt.root.updateMatrixWorld(true);
   return Object.fromEntries(['Left','Right'].map(side=>{
@@ -13,14 +13,21 @@ function groundFeet(){
 }
 function jumpPose(dt,drop,air=0){
   Xt.animate(dt,0,0);
+  const preparation=jumpPhase==='anticipation',landing=jumpPhase==='landing';
+  const targetSwing=preparation?-.20:landing?.02:(-.20+.60*ease(0,.18,jumpTime))*(1-ease(.25,.65,jumpTime));
+  const targetFlex=preparation?.08:landing?.08:.08+.30*ease(0,.18,jumpTime);
+  const response=1-Math.exp(-dt*18);
+  jumpArmSwing+=(targetSwing-jumpArmSwing)*response;
+  jumpArmFlex+=(targetFlex-jumpArmFlex)*response;
+  jumpArmWeight=preparation?ease(0,.13,jumpTime):landing?1-ease(0,.24,jumpTime):1;
   Xt.poseMotion({label:jumpPhase==='anticipation'?'Jump preparation':jumpPhase==='landing'?'Landing':'Airborne',drop,lean:.10+.12*drop,
     feet:air?{Left:localContact(.12,.10+.19*air,.12*air),Right:localContact(-.12,.10+.13*air,-.07*air)}:
       {Left:contact(jumpAnchors.Left),Right:contact(jumpAnchors.Right)},
-    hands:{Left:localContact(.26,air?1.03:.82,air?.30:-.08),Right:localContact(-.26,air?1.03:.82,air?.30:-.08)}});
+    jumpArms:{swing:jumpArmSwing,flex:jumpArmFlex,weight:jumpArmWeight}});
 }
 addEventListener('keydown',e=>{
   if(e.code==='Space'&&!e.repeat&&Te==='walking'&&!Le&&jumpPhase==='grounded'){
-    jumpPhase='anticipation';jumpTime=0;jumpMomentum.copy(Ni);jumpAnchors=groundFeet();
+    jumpPhase='anticipation';jumpTime=0;jumpArmSwing=jumpArmFlex=jumpArmWeight=0;jumpMomentum.copy(Ni);jumpAnchors=groundFeet();
   }
 });
 const walkOnGround=t_;
@@ -42,10 +49,10 @@ t_=function(dt){
     const floor=Je.height(Xt.root.position.x,Xt.root.position.z);
     Xt.root.position.y=jumpY;jumpHeight=Math.max(0,jumpY-floor);
     const tuck=ease(0,.16,jumpTime)*(1-ease(.35,.68,jumpTime));
-    jumpPose(dt,0,.15+.85*tuck);
+    jumpPose(dt,.18*(1-ease(0,.10,jumpTime)),.15+.85*tuck);
     if(jumpY<=floor&&jumpVelocity<0){
       Xt.root.position.y=floor;jumpHeight=jumpVelocity=0;jumpPhase='landing';jumpTime=0;
-      Xt.animate(0,0,0);jumpAnchors=groundFeet();Ni.copy(jumpMomentum).multiplyScalar(.4);
+      Xt.animate(0,0,0);jumpAnchors=groundFeet();jumpPose(0,0);Ni.copy(jumpMomentum).multiplyScalar(.4);
     }
     return;
   }
