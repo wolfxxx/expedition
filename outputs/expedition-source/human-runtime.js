@@ -183,3 +183,19 @@ export function create(encoded) {
   }
   return api;
 }
+// Load embedded scene props with the same offline glTF runtime as the character.
+export async function loadProp(encoded,length=1.5){
+ const bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
+ const gltf=await new GLTFLoader().parseAsync(bytes.buffer,'');
+ const model=gltf.scene,root=new THREE.Group();root.add(model);
+ model.updateMatrixWorld(true);let bounds=new THREE.Box3().setFromObject(model),size=bounds.getSize(new THREE.Vector3());
+ const originalSize=size.toArray();
+ if(size.z>size.x&&size.z>size.y)model.rotation.y+=Math.PI/2;
+ else if(size.y>size.x&&size.y>size.z)model.rotation.z+=Math.PI/2;
+ model.updateMatrixWorld(true);bounds.setFromObject(model);size=bounds.getSize(new THREE.Vector3());
+ model.scale.multiplyScalar(length/size.x);model.updateMatrixWorld(true);bounds.setFromObject(model);
+ const center=bounds.getCenter(new THREE.Vector3());model.position.sub(new THREE.Vector3(center.x,bounds.min.y,center.z));
+ model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(o.material.map)o.material.map.anisotropy=4;}});
+ root.updateMatrixWorld(true);bounds.setFromObject(root);
+ root.userData={originalSize,size:bounds.getSize(new THREE.Vector3()).toArray()};return root;
+}

@@ -16,3 +16,5 @@ Local adaptations: material conversion to glTF PBR, packed color and normal maps
 Three.js and GLTFLoader: MIT, https://github.com/mrdoob/three.js/tree/r180 . License retained in the runtime bundle and original-vehicle/vendor/THREE-LICENSE.txt.
 
 The discarded Soldier and Michelle test models are not included in the final character or runtime.
+
+- Heavy sniper rifle: `heavy_sniper_rifle.glb`, supplied by the user for this project. Original creator and license were not supplied. Original GLB retained unchanged.
