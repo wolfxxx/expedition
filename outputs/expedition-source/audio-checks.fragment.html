@@ -1,0 +1,18 @@
+<button id="audio-test" style="position:fixed;top:10px;left:45%;z-index:9999;pointer-events:auto">Test world audio</button><pre id="audio-report" style="position:fixed;top:50px;left:30%;z-index:9999;background:white;color:black"></pre><script>
+addEventListener('unhandledrejection',e=>document.querySelector('#audio-report').textContent=String(e.reason));
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const key=(code,down)=>dispatchEvent(new KeyboardEvent(down?'keydown':'keyup',{code,bubbles:true}));
+document.querySelector('#audio-test').onclick=async()=>{
+ document.querySelector('#audio-report').textContent='Running audio test';
+ await expedition.ready;await wait(500);expedition.reset();if(expedition.getState().muted){key('KeyM',true);key('KeyM',false);await wait(500);}
+ const initial=expedition.getState().worldAudio;
+ key('KeyW',true);for(let i=0;i<60;i++){expedition.advance(1/60);await wait(20);}key('KeyW',false);
+ key('Space',true);key('Space',false);for(let i=0;i<75;i++){expedition.advance(1/60);await wait(20);}
+ const moving=expedition.getState().worldAudio;
+ key('KeyM',true);key('KeyM',false);await wait(700);
+ const muted=expedition.getState().worldAudio;
+ key('KeyM',true);key('KeyM',false);await wait(500);
+ const restored=expedition.getState().worldAudio;
+ const checks={unlocked:initial.context==='running',ambience:initial.outputRms>0,footsteps:moving.steps>initial.steps,jump:moving.takeoffs>initial.takeoffs,landing:moving.landings>initial.landings,mute:muted.muted&&muted.outputRms<.0001,unmute:!restored.muted&&restored.outputRms>0};
+ document.querySelector('#audio-report').textContent=JSON.stringify({checks,initial,moving,muted,restored},null,2);
+};</script>

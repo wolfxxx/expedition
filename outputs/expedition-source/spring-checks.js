@@ -1,0 +1,12 @@
+const results=[];const check=(name,pass)=>results.push({name,pass});
+Oa();Xt.root.position.set(-22,Je.height(-22,-8),-8);Wn=0;Ue.add('KeyW');expedition.advance(5.5);Ue.clear();
+check('Walk from dry bank into spring',lakeDistance(Xt.root.position.x,Xt.root.position.z)<6&&Xt.root.position.y<waterLevel-.5);
+check('Character follows lakebed',Math.abs(Xt.root.position.y-Je.height(Xt.root.position.x,Xt.root.position.z))<.01);
+Wn=Math.PI;Ue.add('KeyW');expedition.advance(5.6);Ue.clear();check('Walk back onto dry bank',Xt.root.position.y>waterLevel);
+Oa();zt.root.position.set(-22,Je.height(-22,-8),-8);Xe=0;Te='driving';zt.root.attach(Xt.root);Xt.root.position.copy(wu);Xt.root.rotation.set(0,0,0);Xt.animate(0,0,1);
+let entered=false,left=false;Ue.add('KeyW');for(let i=0;i<360;i++){expedition.advance(1/60);const d=lakeDistance(zt.root.position.x,zt.root.position.z);if(d<6&&zt.root.position.y<waterLevel-.5)entered=true;if(entered&&d>12&&zt.root.position.y>waterLevel)left=true;}Ue.clear();
+check('Drive into spring along lakebed',entered);check('Drive out onto opposite bank',left);
+le=0;zt.root.position.set(-22,Je.height(-22,5),5);zt.root.rotation.set(0,0,0);Uu();expedition.advance(4);check('Exit stopped Jeep in spring',Te==='walking'&&!Le&&Xt.root.position.y<waterLevel);
+Uu();expedition.advance(6);check('Re-enter Jeep in spring',Te==='driving'&&!Le);
+Oa();Xt.root.position.set(-22,Je.height(-22,-1),-1);Wn=-.9;Da=5;bs=.18;fc(1,true);Fu=()=>{};
+const report=document.createElement('pre');report.id='spring-results';report.hidden=true;report.textContent=JSON.stringify(results);document.body.append(report);

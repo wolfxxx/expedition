@@ -7,3 +7,15 @@ __pycache__/
 /outputs/*preview.png
 /outputs/expedition-source/checks.html
 /outputs/expedition-source/Expedition-Wildhaven.html
+
+/outputs/expedition-source/audio-checks.html
+
+/outputs/expedition-source/lookout-checks.html
+
+/outputs/expedition-source/spring-checks.html
+
+/outputs/expedition-source/driving-checks.html
+
+/outputs/expedition-source/dwarf-checks.html
+
+/outputs/expedition-source/combat-checks.html

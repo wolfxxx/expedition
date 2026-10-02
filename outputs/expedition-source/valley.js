@@ -23,7 +23,7 @@ function instances(geometry,color,items){
 const trunks=[],needles=[[],[],[]];
 for(let i=0;i<230;i++){
   const a=random()*Math.PI*2,r=22+random()*63,x=Math.sin(a)*r,z=Math.cos(a)*r;
-  if(world.roadDistance(x,z)<5.8 || lakeDistance(x,z)<13 || Math.hypot(x-27,z-35)<7)continue;
+  if(world.roadDistance(x,z)<5.8 || lakeDistance(x,z)<13 || lookoutClearing(x,z))continue;
   const y=world.height(x,z),h=4+random()*5;
   trunks.push({p:[x,y+h*.42,z],s:[.16,h*.84,.16]});
   for(let j=0;j<3;j++)needles[j].push({p:[x,y+h*(.43+j*.2),z],s:[h*(.27-j*.046),h*.52,h*(.27-j*.046)],r:random()*6});
@@ -34,7 +34,7 @@ needles.forEach((v,j)=>instances(new THREE.CylinderGeometry(0,1,1,9),['#294c42',
 const flowers=[[],[]];
 for(let i=0;i<700;i++){
   const x=(random()-.5)*135,z=(random()-.5)*135;
-  if(world.roadDistance(x,z)<3.5||Math.hypot(x,z)<12||lakeDistance(x,z)<12.6)continue;
+  if(lookoutClearing(x,z)||world.roadDistance(x,z)<3.5||Math.hypot(x,z)<12||lakeDistance(x,z)<12.6)continue;
   const s=.055+random()*.065;
   flowers[i%2].push({p:[x,world.height(x,z)+.18,z],s:[s,s*.7,s]});
 }
@@ -72,19 +72,7 @@ lake.material.onBeforeCompile=shader=>{
     normal=normalize(normal+vec3(.045*sin(vLakeWorld.x*2.1+vLakeWorld.z*1.3+uWaterTime*.7),.03*cos(vLakeWorld.z*2.8-uWaterTime*.5),0.));
   `);
 };
-// Keep movement on the dry bank instead of letting feet drop into the lakebed.
-const resolveLand=world.resolveCircle;
-world.resolveCircle=function(position,radius,...rest){
-  let hit=resolveLand(position,radius,...rest);
-  const d=lakeDistance(position.x,position.z),limit=10.8+radius;
-  if(d<limit){if(d<.001){position.x=-22+limit*1.055;position.z=5;}else{const scale=limit/d;position.x=-22+(position.x+22)*scale;position.z=5+(position.z-5)*scale;}hit=true;}
-  return hit;
-};
-const blockedOnLand=e_;
-e_=function(x,z,yaw){
-  for(const offset of [-1.35,0,1.35])if(lakeDistance(x+Math.sin(yaw)*offset,z+Math.cos(yaw)*offset)<12)return true;
-  return blockedOnLand(x,z,yaw);
-};
+// The spring is traversable: normal terrain collision follows its sloped lakebed.
 const bankStones=[],reedStems=[];
 for(let i=0;i<100;i++){
   const a=random()*Math.PI*2,d=10.7+random()*1.8,k=1+.09*Math.sin(3*a)+.055*Math.cos(5*a);
@@ -106,14 +94,8 @@ const terrainHeight=world.height;
 world.height=(x,z)=>Math.abs(x+8.8)<.6&&z>.79&&z<8.86?Math.max(terrainHeight(x,z),deckHeight+.06):terrainHeight(x,z);
 
 // Lookout platform and ranger flag beside the north-east trail.
-const tx=27,tz=35,ty=world.height(tx,tz);
-for(let x of [-1.4,1.4])for(let z of [-1.4,1.4])box(.22,3,.22,'#66543a',tx+x,ty+1.5,tz+z);
-box(3.5,.2,3.5,'#a89267',tx,ty+3,tz);
-for(let z of [-1.6,1.6]){box(3.4,.12,.12,'#b9a77d',tx,ty+4,tz+z);for(let x of [-1.6,0,1.6])box(.1,1,.1,'#847152',tx+x,ty+3.5,tz+z);}
-for(let i=0;i<9;i++)box(1.1,.12,.42,'#9c835f',tx,ty+.15+i*.33,tz-4+i*.3);
-box(.08,6,.08,'#5c5141',tx+1.4,ty+3,tz+1.4);
-const flag=box(1.25,.65,.025,'#dc864b',tx+2,ty+5.65,tz+1.4);
-world.colliders.push({x:tx,z:tz,r:2.1,y:ty,height:4});
+const tx=18,tz=35,ty=world.height(tx,tz);
+// Geometry and layered pedestrian collisions are built in lookout.js.
 
 // Base-camp fire ring, logs, and warm flickering light.
 const fireX=-4,fireZ=-4,fireY=world.height(fireX,fireZ);
@@ -126,7 +108,7 @@ box(1.8,.35,.45,'#776346',-4,fireY+.17,-6);
 // Character appearance and blended animation are managed by human-runtime.js.
 
 // Discovery journal gives the open world three destinations without a forced route.
-const places=[{name:'Mirror spring',x:-11,z:5,r:5},{name:'Ranger lookout',x:27,z:35,r:7},{name:'South pass',x:0,z:-33,r:6}];
+const places=[{name:'Mirror spring',x:-11,z:5,r:5},{name:'Ranger lookout',x:tx,z:tz,r:7},{name:'South pass',x:0,z:-33,r:6}];
 const visited=new Set();
 const journal=document.createElement('section');journal.className='journal glass';
 journal.innerHTML='<div class="eyebrow">FIELD NOTES / 01</div><strong>The valley is yours.</strong><p>Find the spring, lookout & south pass.</p><div id="discoveries">0 / 3 places discovered</div>';

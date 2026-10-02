@@ -1,0 +1,87 @@
+{
+  "checks": {
+    "unlocked": true,
+    "ambience": true,
+    "footsteps": true,
+    "jump": true,
+    "landing": true,
+    "mute": true,
+    "unmute": true
+  },
+  "initial": {
+    "context": "running",
+    "muted": false,
+    "started": true,
+    "waterLevel": 0,
+    "outputRms": 0.019622274539010415,
+    "contacts": {
+      "Left": 0,
+      "Right": 0
+    },
+    "lastContact": null,
+    "steps": 0,
+    "takeoffs": 0,
+    "landings": 0,
+    "birds": 1
+  },
+  "moving": {
+    "context": "running",
+    "muted": false,
+    "started": true,
+    "waterLevel": 0.1063629761338234,
+    "outputRms": 0.022682219588810705,
+    "contacts": {
+      "Left": 3,
+      "Right": 3
+    },
+    "lastContact": {
+      "side": "Right",
+      "height": 0.09375137048825943,
+      "time": 7.799999999999978
+    },
+    "steps": 6,
+    "takeoffs": 1,
+    "landings": 1,
+    "birds": 1
+  },
+  "muted": {
+    "context": "running",
+    "muted": true,
+    "started": true,
+    "waterLevel": 0.10773751139640808,
+    "outputRms": 0,
+    "contacts": {
+      "Left": 3,
+      "Right": 3
+    },
+    "lastContact": {
+      "side": "Right",
+      "height": 0.09375137048825943,
+      "time": 7.799999999999978
+    },
+    "steps": 6,
+    "takeoffs": 1,
+    "landings": 1,
+    "birds": 1
+  },
+  "restored": {
+    "context": "running",
+    "muted": false,
+    "started": true,
+    "waterLevel": 0.10801571607589722,
+    "outputRms": 0.02365116470187651,
+    "contacts": {
+      "Left": 3,
+      "Right": 3
+    },
+    "lastContact": {
+      "side": "Right",
+      "height": 0.09375137048825943,
+      "time": 7.799999999999978
+    },
+    "steps": 6,
+    "takeoffs": 1,
+    "landings": 1,
+    "birds": 1
+  }
+}

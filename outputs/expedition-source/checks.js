@@ -47,7 +47,7 @@ check('Entry knees bend forward',kneesForward);
 check('Enter attaches seated character to car',expedition.getState().mode==='driving'&&expedition.getState().humanInCar&&expedition.getState().pose.seated===1);
 check('Seated knees ahead of hips',expedition.getState().pose.joints.LeftLeg[2]>expedition.getState().pose.joints.Hips[2]+.2);
 const before=expedition.getState().position;
-move('KeyW',2);
+move('KeyW',1); // Measure before the faster Jeep reaches the trees ahead.
 check('Throttle moves Jeep',expedition.getState().speed>0&&expedition.getState().position[2]>before[2]+3);
 key('KeyE',true);key('KeyE',false);
 check('Cannot exit moving car',expedition.getState().mode==='driving');
@@ -72,4 +72,24 @@ for(let frame=0;frame<75;frame++){
 }
 check('Jump hands blend continuously through takeoff and landing',maxHandStep<.09);
 expedition.reset();
-const report=document.createElement('pre');report.id='test-results';report.style='position:absolute;inset:20px;background:#10271fee;color:white;z-index:999;padding:20px;overflow:auto';report.textContent=JSON.stringify({armDiagnostic:window.armDiagnostic,results,final:expedition.getState()},null,2);document.body.append(report);
+const gaitContacts={};
+for(const gait of ['walk','run']){
+ expedition.reset();key('KeyW',true);if(gait==='run')key('ShiftLeft',true);
+ let prior=expedition.getState(),events=[];
+ for(let i=0;i<180;i++){
+  expedition.advance(1/60);const now=expedition.getState();
+  for(const side of ['Left','Right'])if(now.worldAudio.contacts[side]>prior.worldAudio.contacts[side])events.push({side,height:now.pose.joints[side+'Foot'][1],time:i/60});
+  prior=now;
+ }
+ key('KeyW',false);key('ShiftLeft',false);gaitContacts[gait]=events;
+ check(gait+' footsteps follow both animated feet',events.filter(e=>e.side==='Left').length>=2&&events.filter(e=>e.side==='Right').length>=2);
+ check(gait+' contact sounds occur at planted foot height',events.every(e=>e.height<(gait==='walk'?.116:.176)));
+ check(gait+' left and right contacts alternate',events.every((e,i)=>!i||e.side!==events[i-1].side));
+}
+expedition.reset();const beforeIdle=expedition.getState().worldAudio.contacts;
+expedition.advance(1);const afterIdle=expedition.getState().worldAudio.contacts;
+check('Idle has no footstep contacts',beforeIdle.Left===afterIdle.Left&&beforeIdle.Right===afterIdle.Right);
+key('Space',true);key('Space',false);expedition.advance(.5);const inAir=expedition.getState().worldAudio.contacts;
+check('Jump has no walking footstep contacts',afterIdle.Left===inAir.Left&&afterIdle.Right===inAir.Right);
+expedition.reset();
+const report=document.createElement('pre');report.id='test-results';report.style='position:absolute;inset:20px;background:#10271fee;color:white;z-index:999;padding:20px;overflow:auto';report.textContent=JSON.stringify({gaitContacts,armDiagnostic:window.armDiagnostic,results,final:expedition.getState()},null,2);document.body.append(report);

@@ -5,10 +5,14 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // All textures and animation clips are embedded in the GLB and in the offline build.
 export function create(encoded) {
   const root=new THREE.Group();root.name='Rigged explorer';
-  const visual=new THREE.Group();root.add(visual);
+  const elevation=new THREE.Group();root.add(elevation);
+  const visual=new THREE.Group();elevation.add(visual);
   let mixer,model,bones={},actions={},elapsed=0,seated=0,current='Idle',loaded=false;
   let hipsOrigin,normalOffset=0,hidden=false,motionLabel=null;
   const api={root,head:new THREE.Group(),arms:[],legs:[],ready:null,
+    setElevationOffset(value){elevation.position.y=value;},
+    getElevationOffset(){return elevation.position.y;},
+    footHeights(){if(!loaded)return null;root.updateMatrixWorld(true);return {Left:localPosition(bones.LeftFoot).y-elevation.position.y,Right:localPosition(bones.RightFoot).y-elevation.position.y,contactHeight:.115+.060*(actions.Run?.getEffectiveWeight()||0)};},
     animate, poseMotion, setFirstPerson(value){hidden=value;visual.visible=!value;},
     getPose(){
       const joints={};if(loaded){root.updateMatrixWorld(true);for(const n of ['Hips','Head','LeftHand','RightHand','LeftArm','RightArm','LeftForeArm','RightForeArm','LeftUpLeg','RightUpLeg','LeftLeg','RightLeg','LeftFoot','RightFoot'])joints[n]=root.worldToLocal(bones[n].getWorldPosition(new THREE.Vector3())).toArray();}
@@ -110,6 +114,7 @@ export function create(encoded) {
   function poseMotion(spec={}){
     if(!loaded)return;motionLabel=spec.label||null;
     visual.position.y=-(spec.drop||0);root.updateMatrixWorld(true);
+    if(spec.twist){const spine=bones.Spine;const axis=new THREE.Vector3(0,1,0).applyQuaternion(root.getWorldQuaternion(new THREE.Quaternion()));const q=spine.getWorldQuaternion(new THREE.Quaternion()).premultiply(new THREE.Quaternion().setFromAxisAngle(axis,spec.twist));spine.quaternion.copy(spine.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(q));spine.updateMatrixWorld(true);}
     tilt('Spine',spec.lean||0);tilt('Neck',-(spec.lean||0)*.45);
     // Jump arms use modest joint rotations over the relaxed animation pose.
     // No hand targets or elbow poles: wrists retain their natural local rotation.
@@ -119,6 +124,12 @@ export function create(encoded) {
         const variation=side==='Left'?1:.88;
         tilt(side+'Arm',-swing*weight*variation);
         tilt(side+'ForeArm',-flex*weight*variation);
+      }
+    }
+    if(spec.fist){
+      for(const [name,bone] of Object.entries(bones))if(/^R Finger[0-4][12]?$/.test(name)){
+        const angle=name.startsWith('R Finger0')?.35:.85;
+        bone.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),angle*spec.fist));
       }
     }
     for(const [side,sign] of [['Left',1],['Right',-1]]){
@@ -136,7 +147,7 @@ export function create(encoded) {
   }
   const animationPose=new Map();
   function animate(dt,speed=0,sit=0){
-    elapsed+=dt;seated=sit;if(!loaded)return;motionLabel=null;visual.position.y=0;
+    elapsed+=dt;seated=sit;if(dt===0)elevation.position.y=0;if(!loaded)return;motionLabel=null;visual.position.y=0;
     const moving=Math.min(1,Math.abs(speed)/.55)*(1-sit);
     const running=THREE.MathUtils.smoothstep(Math.abs(speed),2.8,4.1);
     const weights={Idle:1-moving,Walk:moving*(1-running),Run:moving*running};

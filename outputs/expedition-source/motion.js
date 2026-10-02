@@ -8,7 +8,7 @@ let jumpPhase='grounded',jumpTime=0,jumpY=0,jumpMomentum=new L(),jumpAnchors=nul
 function groundFeet(){
   const pose=Xt.getPose().joints;Xt.root.updateMatrixWorld(true);
   return Object.fromEntries(['Left','Right'].map(side=>{
-    const p=Xt.root.localToWorld(new L(...pose[side+'Foot']));p.y=Je.height(p.x,p.z)+.10;return [side,p];
+    const p=Xt.root.localToWorld(new L(...pose[side+'Foot']));p.y=Je.walkHeight(p.x,p.z,Xt.root.position.y)+.10;return [side,p];
   }));
 }
 function jumpPose(dt,drop,air=0){
@@ -32,7 +32,7 @@ addEventListener('keydown',e=>{
 });
 const walkOnGround=t_;
 t_=function(dt){
-  if(jumpPhase==='grounded'){walkOnGround(dt);return;}
+  if(jumpPhase==='grounded'){const oldY=Xt.root.position.y;walkOnGround(dt);if(oldY-Xt.root.position.y>.30){Xt.root.position.y=oldY;jumpY=oldY;jumpPhase='airborne';jumpTime=.35;jumpVelocity=0;jumpMomentum.copy(Ni);}return;}
   jumpTime+=dt;
   if(jumpPhase==='anticipation'){
     jumpPose(dt,.18*ease(0,.13,jumpTime));
@@ -45,8 +45,10 @@ t_=function(dt){
     // Inertia persists in the air; input provides modest steering rather than instant reversals.
     if(Math.hypot(input.x,input.y)>.01)jumpMomentum.lerp(desired,1-Math.exp(-dt*1.5));
     Xt.root.position.addScaledVector(jumpMomentum,dt);Je.resolveCircle(Xt.root.position,.28);jg(Xt.root.position);Je.resolveCircle(Xt.root.position,.28);
-    jumpVelocity-=12*dt;jumpY+=jumpVelocity*dt;
-    const floor=Je.height(Xt.root.position.x,Xt.root.position.z);
+    const oldJumpY=jumpY;jumpVelocity-=12*dt;jumpY+=jumpVelocity*dt;
+    const ceiling=Je.walkCeiling(Xt.root.position.x,Xt.root.position.z,oldJumpY);
+    if(jumpY+1.77>ceiling){jumpY=ceiling-1.77;jumpVelocity=Math.min(0,jumpVelocity);}
+    const floor=Je.walkHeight(Xt.root.position.x,Xt.root.position.z,oldJumpY,0);
     Xt.root.position.y=jumpY;jumpHeight=Math.max(0,jumpY-floor);
     const tuck=ease(0,.16,jumpTime)*(1-ease(.35,.68,jumpTime));
     jumpPose(dt,.18*(1-ease(0,.10,jumpTime)),.15+.85*tuck);
@@ -63,10 +65,10 @@ const doorAvailable=dc;dc=()=>jumpPhase==='grounded'&&doorAvailable();
 const resetMovement=Oa;oe('resetBtn').removeEventListener('click',resetMovement);Oa=function(){jumpPhase='grounded';jumpTime=jumpHeight=jumpVelocity=0;jumpMomentum.set(0,0,0);resetMovement();};oe('resetBtn').addEventListener('click',Oa);
 
 function driverPad(){const p=Es(new L(1.62,0,-.32));p.y=Je.height(p.x,p.z);return p;}
-function clearPad(p){return lakeDistance(p.x,p.z)>11.15&&Math.hypot(p.x,p.z)<87.5&&!Je.colliders.some(c=>Math.hypot(p.x-c.x,p.z-c.z)<c.r+.42);}
+function clearPad(p){return Math.hypot(p.x,p.z)<87.5&&!Je.colliders.some(c=>Math.hypot(p.x-c.x,p.z-c.z)<c.r+.42);}
 function stepArc(a,b,u,lift){const t=ease(0,1,u),p=lerpPoint(a,b,t);p.y+=Math.sin(Math.PI*t)*lift;return p;}
 function transitionFeet(u){
-  const ground=(x,z)=>{const p=Es(new L(x,0,z));p.y=Je.height(p.x,p.z)+.10;return p;};
+  const ground=(x,z)=>{const p=Es(new L(x,0,z));p.y=Je.walkHeight(p.x,p.z,Xt.root.position.y)+.10;return p;};
   const left=ground(1.60,-.20),right=ground(1.60,-.44);
   const leftSill=Es(new L(.95,.67,-.18)),rightSill=Es(new L(.99,.67,-.40));
   return {
