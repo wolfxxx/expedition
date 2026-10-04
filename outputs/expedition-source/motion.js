@@ -11,22 +11,29 @@ function groundFeet(){
     const p=Xt.root.localToWorld(new L(...pose[side+'Foot']));p.y=Je.walkHeight(p.x,p.z,Xt.root.position.y)+.10;return [side,p];
   }));
 }
-function jumpPose(dt,drop,air=0){
+// Timings (s) and shape of a jump: crouch with the arms swung back, drive up through straight legs with the arms
+// thrown forward, tuck (one knee up, the other heel back, feet relaxed), reach for the ground, then absorb the landing.
+const JUMP_WIND=.16,JUMP_LAND=.32;
+function jumpPose(dt,drop){
   Xt.animate(dt,0,0);
-  const preparation=jumpPhase==='anticipation',landing=jumpPhase==='landing';
-  const targetSwing=preparation?-.20:landing?.02:(-.20+.60*ease(0,.18,jumpTime))*(1-ease(.25,.65,jumpTime));
-  const targetFlex=preparation?.08:landing?.08:.08+.30*ease(0,.18,jumpTime);
+  const u=jumpTime,wind=jumpPhase==='anticipation',land=jumpPhase==='landing';
+  const push=ease(0,.10,u)*(1-ease(.10,.22,u)),tuck=ease(.08,.30,u)*(1-ease(.46,.66,u)),reach=ease(.52,.72,u);
+  let swing,flex,lean,weight;
+  if(wind){const k=ease(0,JUMP_WIND,u);swing=-.45*k;flex=.25*k;lean=.30*k;weight=ease(0,JUMP_WIND*.8,u);}
+  else if(land){swing=.10+.20*(1-ease(0,.28,u));flex=.08+.40*(1-ease(.05,.3,u));lean=.32*Math.min(1,u/.10)*(1-ease(.14,JUMP_LAND,u));weight=1-ease(.1,JUMP_LAND,u);}
+  else{swing=-.45+1.40*ease(0,.18,u)-.40*ease(.18,.45,u)-.45*ease(.5,.95,u);flex=.25+.30*ease(0,.18,u)-.15*ease(.5,.9,u);lean=.03+.14*tuck+.10*reach;weight=1;}
   const response=1-Math.exp(-dt*18);
-  jumpArmSwing+=(targetSwing-jumpArmSwing)*response;
-  jumpArmFlex+=(targetFlex-jumpArmFlex)*response;
-  jumpArmWeight=preparation?ease(0,.13,jumpTime):landing?1-ease(0,.24,jumpTime):1;
-  Xt.poseMotion({label:jumpPhase==='anticipation'?'Jump preparation':jumpPhase==='landing'?'Landing':'Airborne',drop,lean:.10+.12*drop,
-    feet:air?{Left:localContact(.12,.10+.19*air,.12*air),Right:localContact(-.12,.10+.13*air,-.07*air)}:
+  jumpArmSwing+=(swing-jumpArmSwing)*response;
+  jumpArmFlex+=(flex-jumpArmFlex)*response;
+  jumpArmWeight=weight;
+  const air=!wind&&!land;
+  Xt.poseMotion({label:wind?'Jump preparation':land?'Landing':'Airborne',drop,lean,
+    feet:air?{Left:{position:[.13,.10-.05*push+.30*tuck-.02*reach,.10*tuck+.08*reach],relax:true},Right:{position:[-.13,.10-.05*push+.36*tuck,-.16*tuck-.05*reach],relax:true}}:
       {Left:contact(jumpAnchors.Left),Right:contact(jumpAnchors.Right)},
     jumpArms:{swing:jumpArmSwing,flex:jumpArmFlex,weight:jumpArmWeight}});
 }
 addEventListener('keydown',e=>{
-  if(e.code==='Space'&&!e.repeat&&Te==='walking'&&!Le&&jumpPhase==='grounded'){
+  if(e.code==='Space'&&!e.repeat&&Te==='walking'&&!Le&&!rifleBusy&&jumpPhase==='grounded'){
     jumpPhase='anticipation';jumpTime=0;jumpArmSwing=jumpArmFlex=jumpArmWeight=0;jumpMomentum.copy(Ni);jumpAnchors=groundFeet();
   }
 });
@@ -35,8 +42,8 @@ t_=function(dt){
   if(jumpPhase==='grounded'){const oldY=Xt.root.position.y;walkOnGround(dt);if(oldY-Xt.root.position.y>.30){Xt.root.position.y=oldY;jumpY=oldY;jumpPhase='airborne';jumpTime=.35;jumpVelocity=0;jumpMomentum.copy(Ni);}return;}
   jumpTime+=dt;
   if(jumpPhase==='anticipation'){
-    jumpPose(dt,.18*ease(0,.13,jumpTime));
-    if(jumpTime>=.13){jumpPhase='airborne';jumpTime=0;jumpVelocity=4.25;jumpY=Xt.root.position.y;}
+    jumpPose(dt,.26*ease(0,JUMP_WIND,jumpTime));
+    if(jumpTime>=JUMP_WIND){jumpPhase='airborne';jumpTime=0;jumpVelocity=4.25;jumpY=Xt.root.position.y;}
     return;
   }
   if(jumpPhase==='airborne'){
@@ -50,16 +57,15 @@ t_=function(dt){
     if(jumpY+1.77>ceiling){jumpY=ceiling-1.77;jumpVelocity=Math.min(0,jumpVelocity);}
     const floor=Je.walkHeight(Xt.root.position.x,Xt.root.position.z,oldJumpY,0);
     Xt.root.position.y=jumpY;jumpHeight=Math.max(0,jumpY-floor);
-    const tuck=ease(0,.16,jumpTime)*(1-ease(.35,.68,jumpTime));
-    jumpPose(dt,.18*(1-ease(0,.10,jumpTime)),.15+.85*tuck);
+    jumpPose(dt,.26*(1-ease(0,.08,jumpTime)));
     if(jumpY<=floor&&jumpVelocity<0){
       Xt.root.position.y=floor;jumpHeight=jumpVelocity=0;jumpPhase='landing';jumpTime=0;
-      Xt.animate(0,0,0);jumpAnchors=groundFeet();jumpPose(0,0);Ni.copy(jumpMomentum).multiplyScalar(.4);
+      Xt.animate(0,0,0);jumpAnchors=groundFeet();jumpPose(0,.26*0);Ni.copy(jumpMomentum).multiplyScalar(.4);
     }
     return;
   }
-  jumpPose(dt,.18*Math.sin(Math.PI*Mn(jumpTime/.24,0,1)));
-  if(jumpTime>=.24){jumpPhase='grounded';jumpTime=0;Xt.animate(0,0,0);}
+  jumpPose(dt,.28*(jumpTime<.14?ease(0,.14,jumpTime):1-ease(.14,JUMP_LAND,jumpTime)));
+  if(jumpTime>=JUMP_LAND){jumpPhase='grounded';jumpTime=0;Xt.animate(0,0,0);}
 };
 const doorAvailable=dc;dc=()=>jumpPhase==='grounded'&&doorAvailable();
 const resetMovement=Oa;oe('resetBtn').removeEventListener('click',resetMovement);Oa=function(){jumpPhase='grounded';jumpTime=jumpHeight=jumpVelocity=0;jumpMomentum.set(0,0,0);resetMovement();};oe('resetBtn').addEventListener('click',Oa);

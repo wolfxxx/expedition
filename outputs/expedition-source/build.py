@@ -26,7 +26,7 @@ html=html.replace('</style>','\n'+(root/'polish.css').read_text(encoding='utf-8'
 marker='Oa();Na();oe("loading").hidden=!0;requestAnimationFrame(Ou);})();'
 assert marker in html, 'Expected original initialization marker'
 startup='window.expedition.ready=Promise.all([Xt.ready,rifleReady]);window.expedition.ready.then(()=>{Oa();Na();oe("loading").hidden=!0;requestAnimationFrame(Ou);}).catch(error=>{oe("loading").textContent="Character could not load. Please reopen this file in Chrome or Edge.";console.error(error);});})();'
-html=html.replace(marker,'\n'+(root/'valley.js').read_text(encoding='utf-8')+'\n'+(root/'lookout.js').read_text(encoding='utf-8')+'\n'+(root/'motion.js').read_text(encoding='utf-8')+'\n'+(root/'world-audio.js').read_text(encoding='utf-8-sig')+'\n'+(root/'stair-motion.js').read_text(encoding='utf-8-sig')+'\n'+(root/'camera.js').read_text(encoding='utf-8-sig')+'\n'+(root/'driving.js').read_text(encoding='utf-8')+'\n'+(root/'poison-dwarf.js').read_text(encoding='utf-8-sig')+'\n'+(root/'combat.js').read_text(encoding='utf-8-sig')+'\n'+(root/'lookout-rifle.js').read_text(encoding='utf-8-sig').replace('__RIFLE_GLB__',base64.b64encode((root/'heavy_sniper_rifle.glb').read_bytes()).decode('ascii'))+'\n'+startup)
+html=html.replace(marker,'\n'+(root/'valley.js').read_text(encoding='utf-8')+'\n'+(root/'lookout.js').read_text(encoding='utf-8')+'\n'+(root/'motion.js').read_text(encoding='utf-8')+'\n'+(root/'world-audio.js').read_text(encoding='utf-8-sig')+'\n'+(root/'stair-motion.js').read_text(encoding='utf-8-sig')+'\n'+(root/'camera.js').read_text(encoding='utf-8-sig')+'\n'+(root/'driving.js').read_text(encoding='utf-8')+'\n'+(root/'poison-dwarf.js').read_text(encoding='utf-8-sig')+'\n'+(root/'combat.js').read_text(encoding='utf-8-sig')+'\n'+(root/'lookout-rifle.js').read_text(encoding='utf-8-sig').replace('__RIFLE_GLB__',base64.b64encode((root/'heavy_sniper_rifle.glb').read_bytes()).decode('ascii'))+'\n'+(root/'roadkill.js').read_text(encoding='utf-8-sig')+'\n'+(root/'mouselook.js').read_text(encoding='utf-8-sig')+'\n'+startup)
 out=root/'Expedition-Wildhaven.html'
 out.write_text(html,encoding='utf-8')
 tests=(root/'checks.js').read_text(encoding='utf-8')
@@ -44,3 +44,9 @@ print('Built',out)
 (root/'dwarf-checks.html').write_text(html.replace('window.expedition.ready.then(()=>{Oa();Na();','window.expedition.ready.then(()=>{Oa();'+(root/'dwarf-checks.js').read_text(encoding='utf-8-sig')+'Na();',1),encoding='utf-8')
 
 (root/'combat-checks.html').write_text(html.replace('window.expedition.ready.then(()=>{Oa();Na();','window.expedition.ready.then(()=>{Oa();'+(root/'combat-checks.js').read_text(encoding='utf-8-sig')+'Na();',1),encoding='utf-8')
+
+(root/'rifle-checks.html').write_text(html.replace('window.expedition.ready.then(()=>{Oa();Na();','window.expedition.ready.then(()=>{Oa();'+(root/'rifle-checks.js').read_text(encoding='utf-8-sig')+'Na();',1),encoding='utf-8')
+
+(root/'roadkill-checks.html').write_text(html.replace('window.expedition.ready.then(()=>{Oa();Na();','window.expedition.ready.then(()=>{Oa();'+(root/'roadkill-checks.js').read_text(encoding='utf-8-sig')+'Na();',1),encoding='utf-8')
+
+(root/'mouselook-checks.html').write_text(html.replace('window.expedition.ready.then(()=>{Oa();Na();','window.expedition.ready.then(()=>{Oa();'+(root/'mouselook-checks.js').read_text(encoding='utf-8-sig')+'Na();',1),encoding='utf-8')

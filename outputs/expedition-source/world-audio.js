@@ -1,7 +1,7 @@
 // Local synthesized ambience and Foley; no media downloads or network requests.
 const valleyAudio=(()=>{
  let ctx,master,wind,water,noise,analyser,birdAt=0,started=false;
- const counts={steps:0,takeoffs:0,landings:0,birds:0,swings:0,impacts:0};
+ const counts={steps:0,takeoffs:0,landings:0,birds:0,swings:0,impacts:0,shots:0,rifleImpacts:0,crashes:0};
  function noiseLayer(frequency,type,volume){
   const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
   source.buffer=noise;source.loop=true;filter.type=type;filter.frequency.value=frequency;filter.Q.value=.45;gain.gain.value=volume;
@@ -48,6 +48,42 @@ const valleyAudio=(()=>{
   source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};
   if(hit){const osc=ctx.createOscillator(),thump=ctx.createGain();osc.frequency.setValueAtTime(160,now);osc.frequency.exponentialRampToValueAtTime(48,now+.13);thump.gain.setValueAtTime(.48,now);thump.gain.exponentialRampToValueAtTime(.0001,now+.18);osc.connect(thump).connect(master);osc.start(now);osc.stop(now+.19);osc.onended=()=>{osc.disconnect();thump.disconnect();};}
  }
+
+ // Heavy rifle: sharp crack, chest-thumping blast, two valley echoes and the bolt being worked.
+ function noiseHit(type,from,to,duration,peak,delay=0,Q=.7){
+  const t=ctx.currentTime+delay,source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
+  source.buffer=noise;filter.type=type;filter.Q.value=Q;
+  filter.frequency.setValueAtTime(from,t);filter.frequency.exponentialRampToValueAtTime(to,t+duration);
+  gain.gain.setValueAtTime(.0001,t);gain.gain.exponentialRampToValueAtTime(peak,t+.006);gain.gain.exponentialRampToValueAtTime(.0001,t+duration);
+  source.connect(filter).connect(gain).connect(master);source.start(t,Math.random()*3);source.stop(t+duration+.02);
+  source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};
+ }
+ function tone(from,to,duration,peak,delay=0,type='sine'){
+  const t=ctx.currentTime+delay,osc=ctx.createOscillator(),gain=ctx.createGain();
+  osc.type=type;osc.frequency.setValueAtTime(from,t);osc.frequency.exponentialRampToValueAtTime(to,t+duration);
+  gain.gain.setValueAtTime(peak,t);gain.gain.exponentialRampToValueAtTime(.0001,t+duration);
+  osc.connect(gain).connect(master);osc.start(t);osc.stop(t+duration+.02);osc.onended=()=>{osc.disconnect();gain.disconnect();};
+ }
+ function shot(){
+  if(!started||ui||document.hidden||ctx.state!=='running')return;
+  counts.shots++;
+  noiseHit('highpass',2600,1100,.09,1.5);noiseHit('lowpass',2600,150,.6,2.1);tone(120,30,.45,1.1);
+  noiseHit('lowpass',800,140,.9,.6,.34);noiseHit('lowpass',520,110,1.2,.36,.72);
+  // bolt up-and-back, then forward-and-down
+  for(const d of [.62,1.08]){noiseHit('bandpass',2400,1500,.05,.5,d,3);tone(1900,1100,.04,.12,d,'square');}
+ }
+ function rifleImpact(){
+  if(!started||ui||document.hidden||ctx.state!=='running')return;
+  counts.rifleImpacts++;noiseHit('lowpass',900,180,.18,.8);tone(90,45,.16,.4);
+ }
+ // A car meeting a dwarf: heavy thump, a wet burst, a rising whoosh as he flies, glass tinkling down.
+ function crash(){
+  if(!started||ui||document.hidden||ctx.state!=='running')return;
+  counts.crashes++;
+  noiseHit('lowpass',1800,90,.5,2.2);tone(95,26,.6,1.5);noiseHit('bandpass',900,300,.35,.9,.05,1.2);
+  noiseHit('bandpass',300,2400,.9,.45,.12,.8);
+  for(let i=0;i<14;i++)tone(2400+Math.random()*3800,1500+Math.random()*1500,.05+Math.random()*.05,.10+Math.random()*.08,.10+Math.random()*.9);
+ }
  function bird(){
   const now=ctx.currentTime;counts.birds++;
   for(let i=0;i<3;i++){
@@ -62,7 +98,7 @@ const valleyAudio=(()=>{
  const feet={Left:null,Right:null},contacts={Left:0,Right:0};let lastContact=null,activeTime=0;
  function footfalls(dt,before){
   const distance=Math.hypot(Xt.root.position.x-before.x,Xt.root.position.z-before.z);
-  const active=Te==='walking'&&jumpPhase==='grounded'&&distance>.001&&distance<.5;
+  const active=Te==='walking'&&jumpPhase==='grounded'&&!rifleBusy&&distance>.001&&distance<.5;
   const heights=active?Xt.footHeights():null;
   if(!heights){feet.Left=feet.Right=null;activeTime=0;return;}
   activeTime+=dt;
@@ -96,7 +132,7 @@ const valleyAudio=(()=>{
  addEventListener('pointerdown',unlock);addEventListener('keydown',unlock);addEventListener('click',unlock);
  document.addEventListener('visibilitychange',sync);
  addEventListener('pagehide',()=>{started=false;ctx?.close().catch(()=>{});});
- return {update,sync,state,punch,reset(){feet.Left=feet.Right=null;activeTime=0;lastContact=null;}};
+ return {update,sync,state,punch,shot,rifleImpact,crash,reset(){feet.Left=feet.Right=null;activeTime=0;lastContact=null;}};
 })();
 const audioToggleOriginal=Du;Du=function(){audioToggleOriginal();valleyAudio.sync();};
 oe('soundBtn').title='All game sound (M)';oe('soundBtn').setAttribute('aria-label','Toggle all game sound (M)');

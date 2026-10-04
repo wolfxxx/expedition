@@ -111,10 +111,33 @@ export function create(encoded) {
     const q=b.getWorldQuaternion(new THREE.Quaternion()).premultiply(new THREE.Quaternion().setFromAxisAngle(axis,radians));
     b.quaternion.copy(b.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(q));b.updateMatrixWorld(true);
   }
+  // Turn a hand so its extended fingers point along `fingers` and its palm faces `palm` (both world directions).
+  // The finger and palm axes come from the skeleton itself: the middle finger gives the finger axis, and the palm
+  // faces the side the fingers curl towards (local +y, see the fist curl in poseMotion).
+  const handBasis=new THREE.Matrix4(),handWorld=new THREE.Quaternion(),handLocal=new THREE.Matrix4();
+  function orientHand(side,fingers,palm,weight){
+    const hand=bones[side+'Hand'],middle=bones[side[0]+' Finger2'];if(!hand||!middle)return;
+    const fx=middle.position.clone().normalize(),fz=new THREE.Vector3(0,1,0).cross(fx).normalize(),fy=fx.clone().cross(fz).normalize();
+    handLocal.makeBasis(fx,fy,fz);
+    const wx=fingers.clone().normalize(),wz=palm.clone().cross(wx).normalize(),wy=wx.clone().cross(wz).normalize();
+    handBasis.makeBasis(wx,wy,wz).multiply(handLocal.clone().transpose());
+    handWorld.setFromRotationMatrix(handBasis);
+    hand.parent.getWorldQuaternion(parentRotation).invert();
+    handWorld.premultiply(parentRotation);
+    hand.quaternion.slerp(handWorld,weight);hand.updateMatrixWorld(true);
+  }
   function poseMotion(spec={}){
     if(!loaded)return;motionLabel=spec.label||null;
-    visual.position.y=-(spec.drop||0);root.updateMatrixWorld(true);
-    if(spec.twist){const spine=bones.Spine;const axis=new THREE.Vector3(0,1,0).applyQuaternion(root.getWorldQuaternion(new THREE.Quaternion()));const q=spine.getWorldQuaternion(new THREE.Quaternion()).premultiply(new THREE.Quaternion().setFromAxisAngle(axis,spec.twist));spine.quaternion.copy(spine.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(q));spine.updateMatrixWorld(true);}
+    const prone=spec.prone?.amount||0;
+    // Prone: tip the whole body forward about the feet, lift it clear of the floor and prop the head up.
+    visual.rotation.x=prone*Math.PI/2;visual.position.set(0,(spec.prone?.lift||0)*prone-(spec.drop||0),0);root.updateMatrixWorld(true);
+    if(prone){tilt('Spine1',-.16*prone);tilt('Spine2',-.20*prone);tilt('Neck',-.42*prone);tilt('Head',-.52*prone);tilt('LeftFoot',1.35*prone);tilt('RightFoot',1.35*prone);}
+    const twist=(name,angle)=>{const bone=bones[name];const axis=new THREE.Vector3(0,1,0).applyQuaternion(root.getWorldQuaternion(new THREE.Quaternion()));const q=bone.getWorldQuaternion(new THREE.Quaternion()).premultiply(new THREE.Quaternion().setFromAxisAngle(axis,angle));bone.quaternion.copy(bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(q));bone.updateMatrixWorld(true);};
+    // Hips turn first so the legs, then the spine, carry the rotation up into the shoulders.
+    if(spec.hipTwist)twist('Hips',spec.hipTwist);
+    if(spec.twist)twist('Spine',spec.twist);
+    // Shoulder protraction: a positive angle swings the right shoulder forward, a negative one the left.
+    if(spec.shoulders)for(const [side,angle] of Object.entries(spec.shoulders))if(angle&&bones[side[0]+' Clavicle'])twist(side[0]+' Clavicle',side==='Right'?angle:-angle);
     tilt('Spine',spec.lean||0);tilt('Neck',-(spec.lean||0)*.45);
     // Jump arms use modest joint rotations over the relaxed animation pose.
     // No hand targets or elbow poles: wrists retain their natural local rotation.
@@ -127,27 +150,36 @@ export function create(encoded) {
       }
     }
     if(spec.fist){
-      for(const [name,bone] of Object.entries(bones))if(/^R Finger[0-4][12]?$/.test(name)){
-        const angle=name.startsWith('R Finger0')?.35:.85;
-        bone.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),angle*spec.fist));
+      const curl=typeof spec.fist==='number'?{Right:spec.fist}:spec.fist;
+      for(const [name,bone] of Object.entries(bones)){
+        const m=/^([LR]) Finger([0-4])[12]?$/.exec(name),amount=m&&curl[m[1]==='R'?'Right':'Left'];
+        if(amount)bone.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),(m[2]==='0'?.35:.85)*amount));
       }
     }
     for(const [side,sign] of [['Left',1],['Right',-1]]){
       const foot=spec.feet?.[side],hand=spec.hands?.[side];
       if(foot){const target=new THREE.Vector3(...foot.position);if(foot.world)root.worldToLocal(target);
         const hip=localPosition(bones[side+'UpLeg']);
-        target.x=THREE.MathUtils.clamp(target.x,hip.x-.16,hip.x+.16);
-        target.y=Math.min(target.y,hip.y-.22);
-        target.z=Math.max(target.z,hip.z-.20);
-        limb(side+'UpLeg',side+'Leg',side+'Foot',target,hip.clone().add(v(0,0,1)),foot.weight??1,true);}
+        if(!foot.free){
+          target.x=THREE.MathUtils.clamp(target.x,hip.x-.16,hip.x+.16);
+          target.y=Math.min(target.y,hip.y-.22);
+          target.z=Math.max(target.z,hip.z-.20);
+        }
+        limb(side+'UpLeg',side+'Leg',side+'Foot',target,hip.clone().add(v(0,0,1)),foot.weight??1,!foot.relax);}
       if(hand){const target=new THREE.Vector3(...hand.position);if(hand.world)root.worldToLocal(target);
         const shoulder=localPosition(bones[side+'Arm']);
-        limb(side+'Arm',side+'ForeArm',side+'Hand',target,shoulder.clone().add(v(sign*.06,-1,-.25)),hand.weight??1);}
+        // relative: the target is an offset from the shoulder's final position, so it follows lean, drop and twist.
+        if(hand.relative)target.add(shoulder);
+        // strike: blend towards a point in space, but never further than `reach` from the shoulder (keeps the elbow soft).
+        if(hand.strike){const point=new THREE.Vector3(...hand.strike.point),offset=point.clone().sub(shoulder),length=offset.length()||1;
+          point.copy(shoulder).addScaledVector(offset,Math.min(length,hand.strike.reach)/length);target.lerp(point,hand.strike.amount);}
+        limb(side+'Arm',side+'ForeArm',side+'Hand',target,shoulder.clone().add(hand.pole?v(...hand.pole):v(sign*.06,-1,-.25)),hand.weight??1);
+        if(hand.orient)orientHand(side,v(...hand.orient.fingers),v(...hand.orient.palm),hand.weight??1);}
     }
   }
   const animationPose=new Map();
   function animate(dt,speed=0,sit=0){
-    elapsed+=dt;seated=sit;if(dt===0)elevation.position.y=0;if(!loaded)return;motionLabel=null;visual.position.y=0;
+    elapsed+=dt;seated=sit;if(dt===0)elevation.position.y=0;if(!loaded)return;motionLabel=null;visual.position.set(0,0,0);visual.rotation.x=0;
     const moving=Math.min(1,Math.abs(speed)/.55)*(1-sit);
     const running=THREE.MathUtils.smoothstep(Math.abs(speed),2.8,4.1);
     const weights={Idle:1-moving,Walk:moving*(1-running),Run:moving*running};

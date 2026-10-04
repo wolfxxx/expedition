@@ -19,3 +19,7 @@ __pycache__/
 /outputs/expedition-source/dwarf-checks.html
 
 /outputs/expedition-source/combat-checks.html
+
+/outputs/expedition-source/rifle-checks.html
+/outputs/expedition-source/roadkill-checks.html
+/outputs/expedition-source/mouselook-checks.html

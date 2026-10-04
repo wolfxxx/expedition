@@ -16,6 +16,6 @@ let roadClearance=Infinity;
 for(let x=tx-2;x<=tx+2;x+=.2)for(let z=stairStart-1;z<=tz+2;z+=.2)roadClearance=Math.min(roadClearance,world.roadDistance(x,z));
 check('Entire lookout and stair approach clear the road shoulder',roadClearance>5);
 const landmark=places.find(p=>p.name==='Ranger lookout');check('Discovery marker follows relocated lookout',landmark.x===tx&&landmark.z===tz);
-check('Rifle loaded on lookout deck',!!lookoutRifle&&Math.abs(lookoutRifle.position.y-lookoutTop-.015)<.001);
-check('Rifle fits entirely inside platform',lookoutRifle.userData.size[0]<3&&lookoutRifle.userData.size[2]/2+1.02<1.65);
+check('Rifle loaded and resting on its bipod at the deck centre',!!lookoutRifle&&Math.abs(rifleMount.position.x-tx)<.001&&Math.abs(rifleMount.position.z-tz)<.001&&Math.abs(rifleMount.position.y-(lookoutTop+.015+RIFLE.butt))<.001);
+check('Rifle butt is inside the rails and its muzzle points out over the valley',Math.hypot(rifleMount.position.x-tx,rifleMount.position.z-tz)<.5&&Math.abs(Math.atan2(expedition.rifle.muzzle()[0]-tx,expedition.rifle.muzzle()[2]-tz)-RIFLE.restYaw)<.05);
 const pre=document.createElement('pre');pre.id='lookout-results';pre.hidden=true;pre.textContent=JSON.stringify({results,rifle:lookoutRifle.userData,roadClearance,top,maxRise,maxBodyStep,maxCameraTurn,stairRise});document.body.append(pre);

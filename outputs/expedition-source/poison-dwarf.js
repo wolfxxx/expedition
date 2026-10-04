@@ -52,7 +52,7 @@ const poisonDwarf=(()=>{
  for(const side of [-1,1]){const prong=tube('leather',[side*.075,.84,0],[.014,.26,.014],staff);prong.rotation.z=-side*.24;}
  const motes=[];for(let i=0;i<7;i++){const m=oval('poison',[0,0,0],[.012,.012,.012]);m.castShadow=false;motes.push(m);}
  root.position.set(-5,world.height(-5,3),3);root.rotation.y=2.3;
- let health=100,hurt=0;
+ let health=100,hurt=0;const knock=new L(),lean={x:0,z:0};let flight=null,killed=false,api,downTime=0;const RESPAWN_SECONDS=25;
  let phase=0,time=0,wait=1.5,target=new L(-9,0,12),distance=0,seen=false,blocked=0,walkBlend=0;
  let rng=891;const random=()=>{rng=(Math.imul(rng,1664525)+1013904223)>>>0;return rng/4294967296;};
  function clear(x,z){
@@ -62,12 +62,53 @@ const poisonDwarf=(()=>{
   if(Te==='walking'&&Math.hypot(x-Xt.root.position.x,z-Xt.root.position.z)<.8)return false;
   return !world.colliders.some(c=>Math.hypot(x-c.x,z-c.z)<c.r+.48);
  }
+ function respawn(){
+  const from=Te==='walking'?Xt.root.position:zt.root.position;
+  for(let i=0;i<60;i++){
+   const a=random()*Math.PI*2,r=10+random()*45,x=Math.sin(a)*r,z=Math.cos(a)*r;
+   if(!clear(x,z)||Math.hypot(x-from.x,z-from.z)<25||Math.hypot(x-zt.root.position.x,z-zt.root.position.z)<10)continue;
+   health=100;hurt=0;killed=false;flight=null;knock.set(0,0,0);downTime=0;
+   root.rotation.set(0,random()*Math.PI*2,0);body.rotation.set(0,0,0);body.position.set(0,0,0);
+   root.position.set(x,world.height(x,z),z);wait=1.2;choose();api.onRespawn?.(root.position.clone());return true;
+  }
+  return false;
+ }
  function choose(){for(let i=0;i<50;i++){const a=random()*Math.PI*2,r=10+random()*45,x=Math.sin(a)*r,z=Math.cos(a)*r;if(clear(x,z)){target.set(x,0,z);return;}}target.copy(root.position);}
  function update(dt){
   time+=dt;hurt=Math.max(0,hurt-dt);
   for(const name of ['coat','skin','hood']){mats[name].emissive.set('#ac402b');mats[name].emissiveIntensity=hurt>0?.6*(hurt/.35):0;}
-  if(health<=0){body.rotation.z=La(body.rotation.z,-1.45,9,dt);body.position.y=La(body.position.y,-.25,9,dt);return;}
-  if(hurt>0){body.rotation.x=-Math.sin(hurt/.35*Math.PI)*.22;return;}body.rotation.x=0;
+  // A blow shoves him away from the puncher; the push fades quickly and never carries him into trees, water or a steep drop.
+  if(knock.lengthSq()>1e-3){
+   const nx=root.position.x+knock.x*dt,nz=root.position.z+knock.z*dt;
+   if(clear(nx,nz)&&Math.abs(world.height(nx,nz)-root.position.y)<.35)root.position.set(nx,world.height(nx,nz),nz);
+   knock.multiplyScalar(Math.exp(-dt*14));if(knock.length()<.06)knock.set(0,0,0);
+  }
+  // Thrown by a vehicle: tumble about the middle of the body under gravity, bounce, then settle where he lands.
+  if(flight){
+   const c=flight.center,wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
+   flight.v.y-=15*dt;c.addScaledVector(flight.v,dt);
+   body.rotation.x+=flight.spin.x*dt;body.rotation.z+=flight.spin.z*dt;root.rotation.y+=flight.spin.y*dt;
+   const ground=world.height(c.x,c.z)+.45;
+   if(c.y<ground){
+    c.y=ground;
+    if(flight.v.y<-2.5&&flight.bounces<3){
+     api.onLand?.(new L(c.x,ground-.45,c.z),-flight.v.y,flight.bounces);
+     flight.v.y*=-.40;flight.v.x*=.65;flight.v.z*=.65;flight.spin.multiplyScalar(.65);flight.bounces++;
+    }else{api.onLand?.(new L(c.x,ground-.45,c.z),0,flight.bounces);body.rotation.x=wrap(body.rotation.x);body.rotation.z=wrap(body.rotation.z);flight=null;}
+   }
+   if(flight)body.position.set(0,.7,0).sub(new L(0,.7,0).applyEuler(body.rotation));
+   root.position.set(c.x,flight?c.y-.7:world.height(c.x,c.z),c.z);
+   if(flight)return;
+  }
+  if(health<=0){
+   // After a while he walks it off: back on his feet somewhere quiet, far from the player and the Jeep.
+   downTime+=dt;if(downTime>=RESPAWN_SECONDS&&respawn())return;
+   body.rotation.z=La(body.rotation.z,-1.45,9,dt);body.rotation.x=La(body.rotation.x,0,9,dt);body.position.x=La(body.position.x,0,9,dt);body.position.z=La(body.position.z,0,9,dt);body.position.y=La(body.position.y,-.25,9,dt);return;}
+  if(hurt>0){
+   // stagger: the upper body whips away from the blow, then settles
+   const k=Math.sin(hurt/.35*Math.PI)*.30,yaw=root.rotation.y,lx=lean.x*Math.cos(yaw)-lean.z*Math.sin(yaw),lz=lean.x*Math.sin(yaw)+lean.z*Math.cos(yaw);
+   body.rotation.x=lx||lz?k*lz:-k*.7;body.rotation.z=-k*lx;return;
+  }body.rotation.x=0;
   let moved=0;
   if(wait>0)wait-=dt;
   else if(root.position.distanceTo(new L(target.x,root.position.y,target.z))<1){wait=1.5+random()*3;choose();}
@@ -96,7 +137,7 @@ const poisonDwarf=(()=>{
   motes.forEach((m,i)=>{const age=(time*.35+i/7)%1,a=i*2.4+time*.7;m.position.set(Math.cos(a)*(.22+age*.16),.6+age*.95,Math.sin(a)*.27);m.scale.setScalar(.008+Math.sin(age*Math.PI)*.009);});
   if(!seen&&Math.hypot(root.position.x-Xt.root.position.x,root.position.z-Xt.root.position.z)<4){seen=true;hi('Mosswick · wandering poison alchemist');}
  }
- return {root,update,damage(amount){if(health<=0)return false;health=Math.max(0,health-amount);hurt=.35;wait=.6;return true;},resetHealth(){health=100;hurt=0;body.rotation.set(0,0,0);body.position.y=0;},state:()=>({name:'Mosswick',health,maxHealth:100,defeated:health===0,position:root.position.toArray(),distance,walking:walkBlend>.3,target:target.toArray()})};
+ return api={root,update,fling(v){health=0;hurt=0;killed=true;knock.set(0,0,0);flight={center:new L(root.position.x,root.position.y+.7,root.position.z),v:v.clone(),spin:new L(9+random()*5,(random()-.5)*7,(random()-.5)*10),bounces:0};},damage(amount,push){if(health<=0)return false;health=Math.max(0,health-amount);hurt=.35;wait=.6;if(push){knock.set(push.x*3.2,0,push.z*3.2);lean.x=push.x;lean.z=push.z;}else lean.x=lean.z=0;return true;},resetHealth(){health=100;hurt=0;downTime=0;knock.set(0,0,0);flight=null;killed=false;root.rotation.x=root.rotation.z=0;body.position.set(0,0,0);body.rotation.set(0,0,0);body.position.y=0;},state:()=>({name:'Mosswick',health,maxHealth:100,defeated:health===0,respawnIn:health===0?Math.max(0,RESPAWN_SECONDS-downTime):0,killed,airborne:!!flight,position:root.position.toArray(),distance,walking:walkBlend>.3,target:target.toArray()})};
 })();
 const dwarfStep=Fu;Fu=function(dt){dwarfStep(dt);poisonDwarf.update(dt);};
 const dwarfState=window.expedition.getState;window.expedition.getState=()=>({...dwarfState(),poisonDwarf:poisonDwarf.state()});

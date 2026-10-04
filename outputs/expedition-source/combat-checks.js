@@ -9,8 +9,10 @@ setup();function pointer(type,x){Ae.domElement.dispatchEvent(new PointerEvent(ty
 pointer('pointerdown',100);pointer('pointermove',140);pointer('pointerup',140);check('Camera drag does not punch',combat.time<0);
 pointer('pointerdown',100);pointer('pointerup',100);check('Left click starts punch',combat.time===0);
 expedition.advance(.0833);const windPose=Xt.getPose().joints;expedition.advance(.1);const strikePose=Xt.getPose().joints;
-check('Fist drives forward more than 40 cm',strikePose.RightHand[2]-windPose.RightHand[2]>.40);
-check('Shoulder drives forward with torso',strikePose.RightArm[2]-windPose.RightArm[2]>.04);
+const hand=combat.side+'Hand',arm=combat.side+'Arm'; // clicks alternate right cross / left jab
+check('Striking fist drives forward more than 40 cm',strikePose[hand][2]-windPose[hand][2]>.40);
+check('Shoulder drives forward with torso',strikePose[arm][2]-windPose[arm][2]>.04);
+check('Punches alternate between right and left hands',(()=>{expedition.advance(.6);combat.swings=0;startPunch();const a=combat.side;expedition.advance(.6);startPunch();const b=combat.side;expedition.advance(.6);return a==='Right'&&b==='Left';})());
 const p=Xt.root.position;Ze.position.set(p.x+2,p.y+1.9,p.z+2.5);Ze.fov=50;Ze.updateProjectionMatrix();Ze.lookAt(p.x,p.y+.9,p.z+.5);Fu=()=>{};
 const pre=document.createElement('pre');pre.id='combat-results';pre.hidden=true;pre.textContent=JSON.stringify({results});document.body.append(pre);
 

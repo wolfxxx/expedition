@@ -8,11 +8,12 @@ function slab(x,z,w,d,top,thickness,color){
 }
 function rail(x,z,w,d,bottom,top){box(w,top-bottom,d,'#b9a77d',x,(top+bottom)/2,z);lookoutBarriers.push({x,z,w,d,bottom,top});}
 for(const x of [-1.4,1.4])for(const z of [-1.4,1.4]){
- const ground=world.height(tx+x,tz+z);box(.22,lookoutTop-ground,.22,'#66543a',tx+x,(ground+lookoutTop)/2,tz+z);
+ const ground=world.height(tx+x,tz+z),top=lookoutTop-.12; // end inside the 0.20 m slab: a top face level with the deck surface z-fights and flickers
+ box(.22,top-ground,.22,'#66543a',tx+x,(ground+top)/2,tz+z);
  world.colliders.push({x:tx+x,z:tz+z,r:.16,y:ground,height:lookoutTop-ground});
 }
 slab(tx,tz,3.5,3.5,lookoutTop,.20,'#a89267');
-for(let i=0;i<stairCount;i++)slab(tx,stairStart+(i+.5)*stairDepth,1.4,stairDepth+.01,stairBase+(i+1)*stairRise,.12,'#9c835f');
+for(let i=0;i<stairCount;i++)slab(tx,stairStart+(i+.5)*stairDepth,1.4,stairDepth+.01,stairBase+(i+1)*stairRise-(i===stairCount-1?.003:0),.12,'#9c835f'); // the top tread meets the deck: keep it a hair lower so the two surfaces never tie
 // Guardrails around the deck with a central opening aligned to the stairs.
 rail(tx,tz+1.65,3.4,.10,lookoutTop+.9,lookoutTop+1.02);
 for(const side of [-1,1]){
