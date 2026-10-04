@@ -13,7 +13,8 @@ Download this repository and open `outputs/Expedition-Wildhaven.html` in a brows
 - **Mouse:** it is captured by your first key press (or click), then just move it to look around (no button needed); **Esc** frees the cursor and a click takes it back. **Scroll:** zoom
 - **C:** driving camera; **L:** lighting; **M:** sound; **R:** reset
 - **Left-click:** punch
-- **Mosswick vs the Jeep:** drive into him at speed.
+- **Stones:** low stones can be driven over with speed; fast enough and the Jeep is thrown into the air
+- **Mosswick** talks, and taunts you when you get close. **Mosswick vs the Jeep:** drive into him at speed.
 - **Sniper rifle:** climb the lookout, press **E** beside the rifle to lie down; move the mouse to aim (Esc frees the cursor), **click** or **Space** to fire, **Z** or right-click for the scope, **E** to get up
 
 ## Edit and build

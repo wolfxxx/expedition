@@ -1,7 +1,7 @@
 // Local synthesized ambience and Foley; no media downloads or network requests.
 const valleyAudio=(()=>{
  let ctx,master,wind,water,noise,analyser,birdAt=0,started=false;
- const counts={steps:0,takeoffs:0,landings:0,birds:0,swings:0,impacts:0,shots:0,rifleImpacts:0,crashes:0};
+ const counts={steps:0,takeoffs:0,landings:0,birds:0,swings:0,impacts:0,shots:0,rifleImpacts:0,crashes:0,voices:0,rockHits:0};
  function noiseLayer(frequency,type,volume){
   const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
   source.buffer=noise;source.loop=true;filter.type=type;filter.frequency.value=frequency;filter.Q.value=.45;gain.gain.value=volume;
@@ -84,6 +84,30 @@ const valleyAudio=(()=>{
   noiseHit('bandpass',300,2400,.9,.45,.12,.8);
   for(let i=0;i<14;i++)tone(2400+Math.random()*3800,1500+Math.random()*1500,.05+Math.random()*.05,.10+Math.random()*.08,.10+Math.random()*.9);
  }
+ // Recorded clips (Mosswick's voice). decode() needs the audio context, which exists once the player has pressed a key or clicked.
+ const clipReady=()=>started&&!!ctx&&ctx.state==='running';
+ async function decode(base64){
+  if(!ctx)return null;
+  const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));
+  try{return await ctx.decodeAudioData(bytes.buffer);}catch{return null;}
+ }
+ // Plays a decoded clip; returns its length in seconds (0 if muted or not ready). pan is -1..1.
+ const channels={};
+ function playClip(buffer,{gain=1,pan=0,rate=1,channel=null}={}){
+  if(!buffer||!clipReady()||ui||document.hidden)return 0;
+  if(channel&&channels[channel])try{channels[channel].stop();}catch{} // one voice per channel: a new line cuts off the old
+  const source=ctx.createBufferSource(),volume=ctx.createGain(),panner=ctx.createStereoPanner();
+  source.buffer=buffer;source.playbackRate.value=rate;volume.gain.value=gain;panner.pan.value=pan;
+  source.connect(volume).connect(panner).connect(master);source.start();counts.voices++;if(channel)channels[channel]=source;
+  source.onended=()=>{source.disconnect();volume.disconnect();panner.disconnect();};
+  return buffer.duration/rate;
+ }
+ // The Jeep's tyres and underside meeting a stone (level 0..1.2), or landing after being thrown into the air.
+ function rockHit(level=1){
+  if(!started||ui||document.hidden||ctx.state!=='running')return;
+  counts.rockHits++;
+  noiseHit('lowpass',900,150,.22,.55*level);tone(88,36,.2,.55*level);noiseHit('bandpass',1500,600,.10,.30*level,.0,1.5);
+ }
  function bird(){
   const now=ctx.currentTime;counts.birds++;
   for(let i=0;i<3;i++){
@@ -132,7 +156,7 @@ const valleyAudio=(()=>{
  addEventListener('pointerdown',unlock);addEventListener('keydown',unlock);addEventListener('click',unlock);
  document.addEventListener('visibilitychange',sync);
  addEventListener('pagehide',()=>{started=false;ctx?.close().catch(()=>{});});
- return {update,sync,state,punch,shot,rifleImpact,crash,reset(){feet.Left=feet.Right=null;activeTime=0;lastContact=null;}};
+ return {update,sync,state,punch,shot,rifleImpact,crash,rockHit,decode,playClip,clipReady,reset(){feet.Left=feet.Right=null;activeTime=0;lastContact=null;}};
 })();
 const audioToggleOriginal=Du;Du=function(){audioToggleOriginal();valleyAudio.sync();};
 oe('soundBtn').title='All game sound (M)';oe('soundBtn').setAttribute('aria-label','Toggle all game sound (M)');

@@ -18,3 +18,4 @@ Three.js and GLTFLoader: MIT, https://github.com/mrdoob/three.js/tree/r180 . Lic
 The discarded Soldier and Michelle test models are not included in the final character or runtime.
 
 - Heavy sniper rifle: `heavy_sniper_rifle.glb`, supplied by the user for this project. Original creator and license were not supplied. Original GLB retained unchanged; the game mounts it on the lookout and fires it.
+- Mosswick's voice lines and scream: generated with ElevenLabs text-to-speech (voice: Callum) and sound-generation using the project owner's ElevenLabs account; stored in `voice/`.

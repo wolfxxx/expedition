@@ -52,7 +52,7 @@ const poisonDwarf=(()=>{
  for(const side of [-1,1]){const prong=tube('leather',[side*.075,.84,0],[.014,.26,.014],staff);prong.rotation.z=-side*.24;}
  const motes=[];for(let i=0;i<7;i++){const m=oval('poison',[0,0,0],[.012,.012,.012]);m.castShadow=false;motes.push(m);}
  root.position.set(-5,world.height(-5,3),3);root.rotation.y=2.3;
- let health=100,hurt=0;const knock=new L(),lean={x:0,z:0};let flight=null,killed=false,api,downTime=0;const RESPAWN_SECONDS=25;
+ let health=100,hurt=0;const knock=new L(),lean={x:0,z:0};let flight=null,killed=false,api,downTime=0,talk=0;const RESPAWN_SECONDS=25;
  let phase=0,time=0,wait=1.5,target=new L(-9,0,12),distance=0,seen=false,blocked=0,walkBlend=0;
  let rng=891;const random=()=>{rng=(Math.imul(rng,1664525)+1013904223)>>>0;return rng/4294967296;};
  function clear(x,z){
@@ -69,7 +69,7 @@ const poisonDwarf=(()=>{
    if(!clear(x,z)||Math.hypot(x-from.x,z-from.z)<25||Math.hypot(x-zt.root.position.x,z-zt.root.position.z)<10)continue;
    health=100;hurt=0;killed=false;flight=null;knock.set(0,0,0);downTime=0;
    root.rotation.set(0,random()*Math.PI*2,0);body.rotation.set(0,0,0);body.position.set(0,0,0);
-   root.position.set(x,world.height(x,z),z);wait=1.2;choose();api.onRespawn?.(root.position.clone());return true;
+   root.position.set(x,world.height(x,z),z);wait=1.2;choose();api.onRespawn?.(root.position.clone());api.onEvent?.('respawn');return true;
   }
   return false;
  }
@@ -109,6 +109,11 @@ const poisonDwarf=(()=>{
    const k=Math.sin(hurt/.35*Math.PI)*.30,yaw=root.rotation.y,lx=lean.x*Math.cos(yaw)-lean.z*Math.sin(yaw),lz=lean.x*Math.sin(yaw)+lean.z*Math.cos(yaw);
    body.rotation.x=lx||lz?k*lz:-k*.7;body.rotation.z=-k*lx;return;
   }body.rotation.x=0;
+  if(talk>0){
+   talk-=dt;wait=Math.max(wait,.2);
+   const who=Te==='walking'?Xt.root.position:zt.root.position;
+   root.rotation.y+=uc(root.rotation.y,Math.atan2(who.x-root.position.x,who.z-root.position.z))*(1-Math.exp(-7*dt));
+  }
   let moved=0;
   if(wait>0)wait-=dt;
   else if(root.position.distanceTo(new L(target.x,root.position.y,target.z))<1){wait=1.5+random()*3;choose();}
@@ -133,11 +138,17 @@ const poisonDwarf=(()=>{
   arms[0].shoulder.rotation.x=-Math.sin(phase)*.34*walkBlend;arms[0].elbow.rotation.x=-.20;
   arms[1].shoulder.rotation.x=-.16+Math.sin(phase)*.12*walkBlend;arms[1].elbow.rotation.x=-.16;
   head.rotation.y=Math.sin(time*.65)*.10*(1-walkBlend);head.rotation.x=Math.sin(time*1.1)*.025;
+  if(talk>0){ // jabbing finger, waving other arm, nodding as he talks
+   const lively=Math.min(1,talk*4);
+   arms[0].shoulder.rotation.x=La(arms[0].shoulder.rotation.x,-1.15+Math.sin(time*9)*.4*lively,16,dt);arms[0].elbow.rotation.x=-.85;
+   arms[1].shoulder.rotation.x=-.45+Math.sin(time*6.5+1)*.3*lively;arms[1].elbow.rotation.x=-.55;
+   head.rotation.x=.06+Math.sin(time*12)*.07*lively;head.rotation.y=0;body.position.y+=Math.abs(Math.sin(time*6))*.025*lively;
+  }
   potions.forEach((p,i)=>p.rotation.z=Math.sin(phase+i)*.08*walkBlend);
   motes.forEach((m,i)=>{const age=(time*.35+i/7)%1,a=i*2.4+time*.7;m.position.set(Math.cos(a)*(.22+age*.16),.6+age*.95,Math.sin(a)*.27);m.scale.setScalar(.008+Math.sin(age*Math.PI)*.009);});
   if(!seen&&Math.hypot(root.position.x-Xt.root.position.x,root.position.z-Xt.root.position.z)<4){seen=true;hi('Mosswick · wandering poison alchemist');}
  }
- return api={root,update,fling(v){health=0;hurt=0;killed=true;knock.set(0,0,0);flight={center:new L(root.position.x,root.position.y+.7,root.position.z),v:v.clone(),spin:new L(9+random()*5,(random()-.5)*7,(random()-.5)*10),bounces:0};},damage(amount,push){if(health<=0)return false;health=Math.max(0,health-amount);hurt=.35;wait=.6;if(push){knock.set(push.x*3.2,0,push.z*3.2);lean.x=push.x;lean.z=push.z;}else lean.x=lean.z=0;return true;},resetHealth(){health=100;hurt=0;downTime=0;knock.set(0,0,0);flight=null;killed=false;root.rotation.x=root.rotation.z=0;body.position.set(0,0,0);body.rotation.set(0,0,0);body.position.y=0;},state:()=>({name:'Mosswick',health,maxHealth:100,defeated:health===0,respawnIn:health===0?Math.max(0,RESPAWN_SECONDS-downTime):0,killed,airborne:!!flight,position:root.position.toArray(),distance,walking:walkBlend>.3,target:target.toArray()})};
+ return api={root,update,fling(v){api.onEvent?.('launched');health=0;hurt=0;talk=0;killed=true;knock.set(0,0,0);flight={center:new L(root.position.x,root.position.y+.7,root.position.z),v:v.clone(),spin:new L(9+random()*5,(random()-.5)*7,(random()-.5)*10),bounces:0};},damage(amount,push,source){if(health<=0)return false;health=Math.max(0,health-amount);hurt=.35;wait=.6;talk=0;if(push){knock.set(push.x*3.2,0,push.z*3.2);lean.x=push.x;lean.z=push.z;}else lean.x=lean.z=0;api.onEvent?.(health===0?'ko':'hurt',source||'punch');return true;},talk(seconds){talk=Math.max(talk,seconds);},resetHealth(){health=100;hurt=0;talk=0;downTime=0;knock.set(0,0,0);flight=null;killed=false;root.rotation.x=root.rotation.z=0;body.position.set(0,0,0);body.rotation.set(0,0,0);body.position.y=0;},state:()=>({name:'Mosswick',health,maxHealth:100,defeated:health===0,talking:talk>0,respawnIn:health===0?Math.max(0,RESPAWN_SECONDS-downTime):0,killed,airborne:!!flight,position:root.position.toArray(),distance,walking:walkBlend>.3,target:target.toArray()})};
 })();
 const dwarfStep=Fu;Fu=function(dt){dwarfStep(dt);poisonDwarf.update(dt);};
 const dwarfState=window.expedition.getState;window.expedition.getState=()=>({...dwarfState(),poisonDwarf:poisonDwarf.state()});

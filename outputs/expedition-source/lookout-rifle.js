@@ -197,12 +197,16 @@ function fireRifle(){
  const dir=aimDir(),origin=rifleAt(RIFLE.eye),muzzle=rifleAt(RIFLE.muzzle);
  const hit=castShot(origin,dir);
  rifle.last={kind:hit.kind,distance:hit.distance,point:hit.point.toArray()};
+ if(hit.kind!=='dwarf'&&!poisonDwarf.state().defeated){ // closest approach of the bullet to Mosswick
+  const dp=poisonDwarf.root.position,toDwarf=new L(dp.x-origin.x,dp.y+.7-origin.y,dp.z-origin.z),along=Mn(toDwarf.dot(dir),0,hit.distance);
+  if(along>3&&toDwarf.distanceTo(dir.clone().multiplyScalar(along))<2.5)poisonDwarf.onEvent?.('near-miss','rifle');
+ }
  rifle.recoil=1;rifle.kick=.05;rifle.pitch=Mn(rifle.pitch+.012,RIFLE.pitchMin,RIFLE.pitchMax);
  flash(muzzle.clone().addScaledVector(dir,.1),dir);if(rifle.scope<.5)puff(muzzle.clone().addScaledVector(dir,.3),'#d9d9d0',.4,1.6,.4,.4); // not through the lens
  tracer(muzzle,hit.point);valleyAudio.shot();
  const delay=hit.distance/343*1000;
  if(hit.kind==='dwarf'){
-  const took=poisonDwarf.damage(RIFLE.damage);rifle.hits++;
+  const took=poisonDwarf.damage(RIFLE.damage,null,'rifle');rifle.hits++;
   puff(hit.point,'#ffe6b0',.45,.3,.1,.9);
   const d=poisonDwarf.state();showHit(d.defeated?'Mosswick · knocked out':'Mosswick · '+d.health+' / 100');
   setTimeout(()=>valleyAudio.punch('impact'),delay);

@@ -23,7 +23,7 @@ function punchContact(){
  const p=Xt.root.position,d=poisonDwarf.root.position,dx=d.x-p.x,dz=d.z-p.z,range=Math.hypot(dx,dz);
  if(range>1.5||Math.abs(d.y-p.y)>.65||range>.05&&(dx*Math.sin(Xt.root.rotation.y)+dz*Math.cos(Xt.root.rotation.y))/range<.65)return false;
  for(const c of world.colliders){const u=Mn(((c.x-p.x)*dx+(c.z-p.z)*dz)/(range*range||1),0,1);if(u>.08&&u<.95&&Math.hypot(p.x+dx*u-c.x,p.z+dz*u-c.z)<c.r&&c.y+c.height>p.y+.9)return false;}
- return poisonDwarf.damage(25,{x:dx/(range||1),z:dz/(range||1)});
+ return poisonDwarf.damage(25,{x:dx/(range||1),z:dz/(range||1)},'punch');
 }
 // ---- punch animation -----------------------------------------------------------------------------------------------
 // A boxer's stance: left foot forward, knees bent. Click 1 throws the right cross, click 2 the left jab.
