@@ -72,6 +72,24 @@ fresh();Te='driving';zt.root.position.set(0,world.height(0,0),0);Xe=0;zt.root.ro
 {let back=null;for(let i=0;i<40*5&&!back;i++){E.advance(.2);if(voice.last&&voice.last.cat==='back')back=voice.last;}
  check('When he gets back up he gloats',back&&!D.state().defeated,back&&back.text);}
 
+// ---- he is solid ----
+{const gap=()=>Math.hypot(Xt.root.position.x-D.root.position.x,Xt.root.position.z-D.root.position.z);
+ const walkInto=(seconds,run=false,jump=false)=>{let closest=99;Ue.clear();Ue.add('KeyW');if(run)Ue.add('ShiftLeft');
+  placeDwarf(3,0);const spot=D.root.position.clone(); // pinned where he stands: the player walks up to him
+  for(let i=0;i<seconds*10;i++){D.root.position.copy(spot);if(jump&&i%6===0){dispatchEvent(new KeyboardEvent('keydown',{code:'Space'}));dispatchEvent(new KeyboardEvent('keyup',{code:'Space'}));}
+   E.advance(.1);closest=Math.min(closest,gap());}
+  Ue.clear();return closest;};
+ fresh();D.resetHealth();{const c=walkInto(3);check('Walking straight into him stops you at his edge',c>=.66&&c<.8,'closest '+c.toFixed(2)+' m');
+  check('...and you are still on the near side of him',Xt.root.position.z<D.root.position.z);}
+ fresh();D.resetHealth();{const c=walkInto(3,true);check('Running into him does not get you through either',c>=.66&&Xt.root.position.z<D.root.position.z,'closest '+c.toFixed(2)+' m');}
+ fresh();D.resetHealth();{const c=walkInto(3,true,true);check('Jumping at him does not carry you through (he is taller than a jump)',c>=.66,'closest '+c.toFixed(2)+' m');}
+ fresh();D.resetHealth();{placeDwarf(3,0);Xt.root.position.set(D.root.position.x,D.root.position.y,D.root.position.z);Je.resolveCircle(Xt.root.position,.28);
+  check('Spawning exactly on top of him pushes you out',gap()>=.66,'pushed to '+gap().toFixed(2)+' m');}
+ fresh();D.resetHealth();{Xt.root.position.set(tx,lookoutTop,tz);D.root.position.set(tx,world.height(tx,tz),tz);const before=Xt.root.position.clone();Je.resolveCircle(Xt.root.position,.28);
+  check('Standing on the deck above him you are not blocked by him',Math.abs(Xt.root.position.x-before.x)<1e-6&&Math.abs(Xt.root.position.z-before.z)<1e-6||Math.hypot(Xt.root.position.x-tx,Xt.root.position.z-tz)<1.8);}
+ fresh();D.resetHealth();D.damage(100);{const c=walkInto(3);check('A knocked-out Mosswick can be stepped over',c<.5&&Xt.root.position.z>D.root.position.z,'closest '+c.toFixed(2)+' m');}
+ D.resetHealth();}
+
 // ---- housekeeping ----
 fresh();stay(3,5);Oa();check('Reset clears the caption',bubble.style.display==='none');
 check('The audio engine refuses to play nothing',valleyAudio.playClip(null)===0);

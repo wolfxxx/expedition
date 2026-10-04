@@ -1,7 +1,9 @@
 // Mosswick meets the Jeep. Hit him at speed and he is launched, tumbling, in a burst of shattered potions,
 // with a slow-motion beat, a camera slam and a crash. R brings him back.
-const roadkill={hits:0,shake:0,slow:0,cam:0,last:null,killCam:new L(),basePos:new L()};
-const ROADKILL={minSpeed:2,halfWidth:1.30,rear:-2.3,front:2.5,slowSeconds:.85,slowScale:.28,camSeconds:2.6};
+const roadkill={hits:0,shake:0,slow:0,cam:0,camTotal:2.6,last:null,report:null,best:0,killCam:new L(),basePos:new L(),side:new L(),heading:new L()};
+const ROADKILL={minSpeed:2,halfWidth:1.30,rear:-2.3,front:2.5,slowSeconds:.85,slowScale:.28,camSeconds:2.6,
+  // how far he flies: horizontal speed 1.25x the Jeep's plus 2 m/s, vertical 5 m/s plus 0.45x; kept inside the map
+  carry:1.25,carryBase:2,lift:.45,liftBase:5,mapRadius:125};
 
 // ---- collision --------------------------------------------------------------------------------------------------------
 function carHitsDwarf(){
@@ -52,19 +54,41 @@ function splash(point){
 // ---- the hit ----------------------------------------------------------------------------------------------------------------
 function runDown(local){
  const speed=Math.abs(le),sign=le<0?-1:1,heading=new L(Math.sin(Xe)*sign,0,Math.cos(Xe)*sign),side=new L(Math.cos(Xe),0,-Math.sin(Xe));
- const launch=heading.clone().multiplyScalar(speed*1.05+3).addScaledVector(side,local.x*3.2);launch.y=7+Math.min(speed,27)*.5;
  const at=poisonDwarf.root.position.clone();
+ // the harder the hit, the further and higher he goes
+ const vy=ROADKILL.liftBase+Math.min(speed,27)*ROADKILL.lift;
+ let carry=speed*ROADKILL.carry+ROADKILL.carryBase;
+ // where would he come down (flight time x carry, plus about 30% for the bounces)? keep that inside the map
+ const dir=heading,reach=carry*(2*vy/15)*1.3,b=at.x*dir.x+at.z*dir.z,room=-b+Math.sqrt(Math.max(0,b*b-(at.x*at.x+at.z*at.z-ROADKILL.mapRadius*ROADKILL.mapRadius)));
+ if(reach>room)carry*=Math.max(.25,room/reach);
+ const launch=heading.clone().multiplyScalar(carry).addScaledVector(side,local.x*3.2);launch.y=vy;
  poisonDwarf.fling(launch);
  scatter(at,heading,speed);
  valleyAudio.crash();
  le*=.7;                                // the Jeep shrugs it off, but not entirely
  roadkill.hits++;roadkill.shake=1;roadkill.slow=ROADKILL.slowSeconds;
  // kill-cam: a spot beside the road and a little ahead of the impact, looking back at the flight
- roadkill.cam=ROADKILL.camSeconds;roadkill.basePos.copy(Ze.position);
+ roadkill.camTotal=Math.min(6.5,ROADKILL.camSeconds+speed*.14);roadkill.cam=roadkill.camTotal;roadkill.basePos.copy(Ze.position);
+ roadkill.side.copy(side).multiplyScalar(local.x>=0?-1:1);roadkill.heading.copy(heading);
  roadkill.killCam.copy(at).addScaledVector(side,(local.x>=0?-1:1)*9).addScaledVector(heading,9);roadkill.killCam.y=Math.max(at.y+2.6,world.height(roadkill.killCam.x,roadkill.killCam.z)+2.2);
- roadkill.last={speed,at:at.toArray(),launch:launch.toArray()};
+ roadkill.last={speed,at:at.toArray(),launch:launch.toArray()};roadkill.report=null;
  hi('Mosswick has been flattened.');
 }
+// ---- the flight report ------------------------------------------------------------------------------------------------------
+const reportPanel=document.createElement('div');
+reportPanel.style='position:fixed;left:50%;top:92px;transform:translateX(-50%);z-index:7;display:none;padding:12px 20px;border-radius:14px;background:#172921ee;color:#e7e9cf;font:14px/1.5 sans-serif;text-align:center;pointer-events:none;box-shadow:0 4px 14px #0007';
+document.body.append(reportPanel);let reportUntil=0;
+poisonDwarf.onSettle=flight=>{
+ const speed=roadkill.last?roadkill.last.speed:0,metres=flight.distance,record=metres>roadkill.best&&roadkill.best>0;
+ roadkill.report={metres:+metres.toFixed(1),speedKmh:Math.round(speed*3.6),peak:+flight.peak.toFixed(1),airTime:+flight.airTime.toFixed(1),bounces:flight.bounces};
+ roadkill.best=Math.max(roadkill.best,metres);
+ reportPanel.innerHTML='<div style="letter-spacing:.14em;font-size:11px;color:#a2d95f">FLIGHT REPORT</div>'
+  +'<div style="font-size:15px">Hit at <b>'+roadkill.report.speedKmh+' km/h</b> &middot; Mosswick flew <b style="font-size:22px;color:#f0d9a0">'+metres.toFixed(1)+' m</b></div>'
+  +'<div style="opacity:.85">Peak height '+flight.peak.toFixed(1)+' m &middot; air time '+flight.airTime.toFixed(1)+' s &middot; '+flight.bounces+' bounce'+(flight.bounces===1?'':'s')+'</div>'
+  +'<div style="opacity:.85">Best this session: '+roadkill.best.toFixed(1)+' m'+(record?' &mdash; <b style="color:#f0d9a0">new record!</b>':'')+'</div>';
+ reportPanel.style.display='block';reportUntil=Fa+9;
+ hi('Mosswick flew '+metres.toFixed(1)+' m'+(record?' - a new record!':'.'));
+};
 poisonDwarf.onLand=(point,impact,bounce)=>{
  if(impact>0){puff(point.clone().add(new L(0,.2,0)),'#cdbd90',.9+.2*bounce,.9,.4,.6);splash(point);}
  else puff(point.clone().add(new L(0,.3,0)),'#9be05a',1.3,1.4,.5,.65); // final slump
@@ -84,6 +108,7 @@ Fu=function(dt){
  roadkillStep(dt);
  const local=carHitsDwarf();if(local)runDown(local);
  roadkill.shake*=Math.exp(-dt*5);
+ if(reportPanel.style.display==='block'&&Fa>reportUntil)reportPanel.style.display='none';
 };
 // the camera slams with the impact
 const roadkillCamera=fc;
@@ -93,13 +118,20 @@ fc=function(dt,snap=false){
  roadkillCamera(dt,snap);
  if(killShot){
   roadkill.basePos.copy(Ze.position);
-  const age=1-roadkill.cam/ROADKILL.camSeconds,w=ease(0,.1,age)*(1-ease(.82,1,age));
+  const age=1-roadkill.cam/roadkill.camTotal,w=ease(0,.1,age)*(1-ease(.9,1,age));
   const q0=Ze.quaternion.clone(),flying=poisonDwarf.root.position;
+  // follow him down the flight path, backing off the further he has gone, so a long flight stays in frame
+  if(roadkill.last){
+   const from=roadkill.last.at,gone=Math.hypot(flying.x-from[0],flying.z-from[2]),away=9+Math.min(16,gone*.22);
+   const want=new L(flying.x,0,flying.z).addScaledVector(roadkill.side,away).addScaledVector(roadkill.heading,-3);
+   want.y=Math.max(flying.y+3,world.height(want.x,want.z)+2.2);
+   roadkill.killCam.lerp(want,1-Math.exp(-2.5*dt));
+  }
   Ze.position.lerp(roadkill.killCam,w);Ze.lookAt(flying.x,flying.y+.8,flying.z);
   Ze.quaternion.slerp(q0.clone(),1-w); // blend the aim between the chase view and the dwarf
  }
  if(roadkill.shake>.02){const a=.35*roadkill.shake;Ze.position.x+=(Math.random()-.5)*a;Ze.position.y+=(Math.random()-.5)*a;Ze.position.z+=(Math.random()-.5)*a;}
 };
-const roadkillReset=Oa;Oa=function(){roadkillReset();roadkill.shake=0;roadkill.slow=0;roadkill.cam=0;};window.expedition.reset=Oa;
+const roadkillReset=Oa;Oa=function(){roadkillReset();roadkill.shake=0;roadkill.slow=0;roadkill.cam=0;roadkill.report=null;reportPanel.style.display='none';};window.expedition.reset=Oa;
 const roadkillState=window.expedition.getState;
-window.expedition.getState=()=>({...roadkillState(),roadkill:{hits:roadkill.hits,slow:roadkill.slow,last:roadkill.last}});
+window.expedition.getState=()=>({...roadkillState(),roadkill:{hits:roadkill.hits,slow:roadkill.slow,last:roadkill.last,report:roadkill.report,best:roadkill.best}});

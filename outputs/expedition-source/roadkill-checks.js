@@ -71,6 +71,29 @@ run(14,7,0);check('Dead again for the respawn test',D.state().killed);
 // a knockout respawns too
 scene(0,3,0,0,'walking');D.damage(100);expedition.advance(26);check('A knocked-out dwarf respawns too',!D.state().defeated);
 
+// ---- the harder the hit, the further he flies, and the game reports it ----
+function flightAt(speed,z0=0,heading=0){
+ scene(speed,Math.max(6,speed*.6),0,heading);zt.root.position.set(0,world.height(0,z0),z0);
+ const x=Math.sin(heading)*Math.max(6,speed*.6),z=z0+Math.cos(heading)*Math.max(6,speed*.6);D.root.position.set(x,world.height(x,z),z);
+ const hits=roadkill.hits;for(let i=0;i<200&&roadkill.hits===hits;i++){le=speed;expedition.advance(1/60);}
+ roadkill.report=null;for(let i=0;i<120&&!roadkill.report;i++)expedition.advance(.1);
+ return {report:roadkill.report,last:roadkill.last,end:D.root.position.clone(),cam:roadkill.camTotal};
+}
+{const speeds=[5,9,14,20,27],runs=speeds.map(v=>flightAt(v)),m=runs.map(r=>r.report&&r.report.metres);
+ check('Every hit produces a flight report',runs.every(r=>r.report&&r.report.metres>0),m.join(', ')+' m');
+ check('The harder the hit, the further he flies (5, 9, 14, 20, 27 m/s)',m.every((v,i)=>i===0||v>m[i-1]+1),m.map((v,i)=>speeds[i]+' m/s: '+v+' m').join('; '));
+ check('A gentle bump sends him only a few metres',m[0]<12,m[0]+' m');
+ check('A 97 km/h hit sends him a long way (over 55 m)',m[4]>55,m[4]+' m');
+ const r=runs[2],travelled=Math.hypot(r.end.x-r.last.at[0],r.end.z-r.last.at[2]);
+ check('The reported distance is the real distance from where he was hit',Math.abs(r.report.metres-travelled)<.6,'report '+r.report.metres+' m, measured '+travelled.toFixed(1)+' m');
+ check('The report shows peak height, air time and the speed of the hit',r.report.peak>1&&r.report.airTime>1&&r.report.speedKmh>30&&r.report.speedKmh<55,JSON.stringify(r.report));
+ const last=runs[4].report;check('The report panel is on screen and shows the latest flight',reportPanel.style.display==='block'&&reportPanel.textContent.includes(last.metres.toFixed(1)+' m')&&reportPanel.textContent.includes('FLIGHT REPORT'),'display '+reportPanel.style.display+', text: '+reportPanel.textContent.slice(0,120));
+ const best=runs[4].report.metres;check('The session best is remembered',roadkill.best>=best-.06&&reportPanel.textContent.includes('Best this session'),'best '+roadkill.best.toFixed(1)+', latest '+best);
+ check('The kill-cam stays with a longer flight',runs[4].cam>runs[0].cam+1,runs[0].cam.toFixed(1)+' s vs '+runs[4].cam.toFixed(1)+' s');
+ const edge=flightAt(27,70);
+ check('Even straight at the edge of the map he lands inside it',Math.hypot(edge.end.x,edge.end.z)<=135,'landed '+Math.hypot(edge.end.x,edge.end.z).toFixed(0)+' m from the centre, flew '+edge.report.metres+' m');
+ expedition.advance(10);check('The report panel goes away by itself',reportPanel.style.display==='none');}
+
 // ---- reset ----
 Oa();
 {const st=D.state();check('Reset brings him back whole',st.health===100&&!st.killed&&!st.airborne&&D.root.children[0].position.length()<.001&&D.root.children[0].rotation.z===0);}

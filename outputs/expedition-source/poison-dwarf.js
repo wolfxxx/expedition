@@ -86,7 +86,7 @@ const poisonDwarf=(()=>{
   // Thrown by a vehicle: tumble about the middle of the body under gravity, bounce, then settle where he lands.
   if(flight){
    const c=flight.center,wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
-   flight.v.y-=15*dt;c.addScaledVector(flight.v,dt);
+   flight.v.y-=15*dt;c.addScaledVector(flight.v,dt);flight.time+=dt;flight.peak=Math.max(flight.peak,c.y-.7-flight.origin.y);
    body.rotation.x+=flight.spin.x*dt;body.rotation.z+=flight.spin.z*dt;root.rotation.y+=flight.spin.y*dt;
    const ground=world.height(c.x,c.z)+.45;
    if(c.y<ground){
@@ -94,7 +94,9 @@ const poisonDwarf=(()=>{
     if(flight.v.y<-2.5&&flight.bounces<3){
      api.onLand?.(new L(c.x,ground-.45,c.z),-flight.v.y,flight.bounces);
      flight.v.y*=-.40;flight.v.x*=.65;flight.v.z*=.65;flight.spin.multiplyScalar(.65);flight.bounces++;
-    }else{api.onLand?.(new L(c.x,ground-.45,c.z),0,flight.bounces);body.rotation.x=wrap(body.rotation.x);body.rotation.z=wrap(body.rotation.z);flight=null;}
+    }else{api.onLand?.(new L(c.x,ground-.45,c.z),0,flight.bounces);body.rotation.x=wrap(body.rotation.x);body.rotation.z=wrap(body.rotation.z);
+     const done=flight;flight=null; // report how far he went, measured on the ground from where he was hit
+     api.onSettle?.({distance:Math.hypot(c.x-done.origin.x,c.z-done.origin.z),airTime:done.time,peak:done.peak,bounces:done.bounces,from:done.origin.toArray(),to:[c.x,world.height(c.x,c.z),c.z]});}
    }
    if(flight)body.position.set(0,.7,0).sub(new L(0,.7,0).applyEuler(body.rotation));
    root.position.set(c.x,flight?c.y-.7:world.height(c.x,c.z),c.z);
@@ -148,7 +150,22 @@ const poisonDwarf=(()=>{
   motes.forEach((m,i)=>{const age=(time*.35+i/7)%1,a=i*2.4+time*.7;m.position.set(Math.cos(a)*(.22+age*.16),.6+age*.95,Math.sin(a)*.27);m.scale.setScalar(.008+Math.sin(age*Math.PI)*.009);});
   if(!seen&&Math.hypot(root.position.x-Xt.root.position.x,root.position.z-Xt.root.position.z)<4){seen=true;hi('Mosswick · wandering poison alchemist');}
  }
- return api={root,update,fling(v){api.onEvent?.('launched');health=0;hurt=0;talk=0;killed=true;knock.set(0,0,0);flight={center:new L(root.position.x,root.position.y+.7,root.position.z),v:v.clone(),spin:new L(9+random()*5,(random()-.5)*7,(random()-.5)*10),bounces:0};},damage(amount,push,source){if(health<=0)return false;health=Math.max(0,health-amount);hurt=.35;wait=.6;talk=0;if(push){knock.set(push.x*3.2,0,push.z*3.2);lean.x=push.x;lean.z=push.z;}else lean.x=lean.z=0;api.onEvent?.(health===0?'ko':'hurt',source||'punch');return true;},talk(seconds){talk=Math.max(talk,seconds);},resetHealth(){health=100;hurt=0;talk=0;downTime=0;knock.set(0,0,0);flight=null;killed=false;root.rotation.x=root.rotation.z=0;body.position.set(0,0,0);body.rotation.set(0,0,0);body.position.y=0;},state:()=>({name:'Mosswick',health,maxHealth:100,defeated:health===0,talking:talk>0,respawnIn:health===0?Math.max(0,RESPAWN_SECONDS-downTime):0,killed,airborne:!!flight,position:root.position.toArray(),distance,walking:walkBlend>.3,target:target.toArray()})};
+ // Mosswick is solid for the player on foot (walking, running, landing from a jump): a circle 0.40 m across his middle.
+ // A knocked-out or flying Mosswick is not, so you can step over a body. Anyone well above his head (on the deck) is not blocked.
+ const resolveBeforeDwarf=world.resolveCircle;
+ world.resolveCircle=function(p,r,...rest){
+  let hit=resolveBeforeDwarf.call(this,p,r,...rest);
+  if(health>0&&!flight&&p.y>root.position.y-1&&p.y<root.position.y+1.4){
+   const dx=p.x-root.position.x,dz=p.z-root.position.z,min=.40+r,distance=Math.hypot(dx,dz);
+   if(distance<min){
+    // straight out of the circle (a tiny nudge if exactly on top, so there is always a direction)
+    const nx=distance>1e-4?dx/distance:Math.sin(root.rotation.y),nz=distance>1e-4?dz/distance:Math.cos(root.rotation.y);
+    p.x=root.position.x+nx*min;p.z=root.position.z+nz*min;hit=true;
+   }
+  }
+  return hit;
+ };
+ return api={root,update,fling(v){api.onEvent?.('launched');health=0;hurt=0;talk=0;killed=true;knock.set(0,0,0);flight={origin:root.position.clone(),time:0,peak:0,center:new L(root.position.x,root.position.y+.7,root.position.z),v:v.clone(),spin:new L(9+random()*5,(random()-.5)*7,(random()-.5)*10),bounces:0};},damage(amount,push,source){if(health<=0)return false;health=Math.max(0,health-amount);hurt=.35;wait=.6;talk=0;if(push){knock.set(push.x*3.2,0,push.z*3.2);lean.x=push.x;lean.z=push.z;}else lean.x=lean.z=0;api.onEvent?.(health===0?'ko':'hurt',source||'punch');return true;},talk(seconds){talk=Math.max(talk,seconds);},resetHealth(){health=100;hurt=0;talk=0;downTime=0;knock.set(0,0,0);flight=null;killed=false;root.rotation.x=root.rotation.z=0;body.position.set(0,0,0);body.rotation.set(0,0,0);body.position.y=0;},state:()=>({name:'Mosswick',health,maxHealth:100,defeated:health===0,talking:talk>0,respawnIn:health===0?Math.max(0,RESPAWN_SECONDS-downTime):0,killed,airborne:!!flight,position:root.position.toArray(),distance,walking:walkBlend>.3,target:target.toArray()})};
 })();
 const dwarfStep=Fu;Fu=function(dt){dwarfStep(dt);poisonDwarf.update(dt);};
 const dwarfState=window.expedition.getState;window.expedition.getState=()=>({...dwarfState(),poisonDwarf:poisonDwarf.state()});
