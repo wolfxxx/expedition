@@ -17,6 +17,12 @@ html=html.replace('if(A(it,vt)<4.7||Math.hypot(it-10,vt+8)<7)','if(lookoutCleari
 html=html.replace('if(Math.hypot(V,q)<12||A(V,q)<4)','if(lookoutClearing(V,q)||lakeDistance(V,q)<12.6||(Math.abs(V+8.8)<1.8&&q>0&&q<10)||Math.hypot(V,q)<12||A(V,q)<4)',1)
 html=html.replace('Math.hypot(V,q)<10||A(V,q)<3.1||B.push','lookoutClearing(V,q)||lakeDistance(V,q)<12.6||Math.hypot(V,q)<10||A(V,q)<3.1||B.push',1)
 html=html.replace('Xt.root.position.y=Je.height(Xt.root.position.x,Xt.root.position.z);let c=', 'Xt.root.position.y=Je.walkHeight(Xt.root.position.x,Xt.root.position.z,l.y);let c=',1)
+# Page title and icon: embedded as data URIs so they also work when the file is downloaded and opened on its own
+import re
+_icons=root.parent.parent
+def _uri(name,mime):return 'data:'+mime+';base64,'+base64.b64encode((_icons/name).read_bytes()).decode('ascii')
+html=re.sub(r'<title>.*?</title>','<title>Expedition '+chr(183)+' Wildhaven Valley</title>',html,count=1)
+html=html.replace('<title>','<link rel="icon" type="image/svg+xml" href="'+_uri('favicon.svg','image/svg+xml')+'"><link rel="icon" type="image/png" sizes="32x32" href="'+_uri('favicon-32.png','image/png')+'"><link rel="apple-touch-icon" href="'+_uri('apple-touch-icon.png','image/png')+'"><title>',1)
 runtime=(root/'human-runtime.bundle.js').read_text(encoding='utf-8')
 encoded=base64.b64encode((root/'ranger.glb').read_bytes()).decode('ascii')
 html=html.replace('<script>(()=>{','<script>'+runtime+'</script><script>(()=>{',1)
