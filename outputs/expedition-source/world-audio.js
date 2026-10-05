@@ -1,7 +1,7 @@
 // Local synthesized ambience and Foley; no media downloads or network requests.
 const valleyAudio=(()=>{
  let ctx,master,wind,water,noise,analyser,birdAt=0,started=false;
- const counts={steps:0,takeoffs:0,landings:0,birds:0,swings:0,impacts:0,shots:0,rifleImpacts:0,crashes:0,voices:0,rockHits:0};
+ const counts={steps:0,takeoffs:0,landings:0,birds:0,swings:0,impacts:0,shots:0,rifleImpacts:0,crashes:0,voices:0,rockHits:0,splashes:0,quacks:0};
  function noiseLayer(frequency,type,volume){
   const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
   source.buffer=noise;source.loop=true;filter.type=type;filter.frequency.value=frequency;filter.Q.value=.45;gain.gain.value=volume;
@@ -108,6 +108,26 @@ const valleyAudio=(()=>{
   counts.rockHits++;
   noiseHit('lowpass',900,150,.22,.55*level);tone(88,36,.2,.55*level);noiseHit('bandpass',1500,600,.10,.30*level,.0,1.5);
  }
+ // Water: feet, wheels, a fish, a bullet or a falling dwarf (level 0..1.4).
+ function splash(level=1){
+  if(!started||ui||document.hidden||ctx.state!=='running')return;
+  counts.splashes++;
+  noiseHit('bandpass',2800,900,.28,.55*level,0,.8);noiseHit('highpass',4200,2400,.10,.16*level);tone(280,110,.14,.22*level);
+ }
+ // A startled duck: two rasping, nasal honks (level 0..1).
+ function quack(level=1){
+  if(!started||ui||document.hidden||ctx.state!=='running')return;
+  counts.quacks++;
+  for(const [delay,pitch] of [[0,1],[.2,.9]]){
+   const t=ctx.currentTime+delay,osc=ctx.createOscillator(),vibrato=ctx.createOscillator(),vibratoGain=ctx.createGain(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
+   osc.type='sawtooth';osc.frequency.setValueAtTime(520*pitch,t);osc.frequency.exponentialRampToValueAtTime(310*pitch,t+.15);
+   vibrato.frequency.value=38;vibratoGain.gain.value=26;vibrato.connect(vibratoGain).connect(osc.frequency);
+   filter.type='bandpass';filter.frequency.value=1100;filter.Q.value=2.6;
+   gain.gain.setValueAtTime(.0001,t);gain.gain.exponentialRampToValueAtTime(.30*level,t+.02);gain.gain.exponentialRampToValueAtTime(.0001,t+.16);
+   osc.connect(filter).connect(gain).connect(master);osc.start(t);vibrato.start(t);osc.stop(t+.18);vibrato.stop(t+.18);
+   osc.onended=()=>{osc.disconnect();vibrato.disconnect();vibratoGain.disconnect();filter.disconnect();gain.disconnect();};
+  }
+ }
  function bird(){
   const now=ctx.currentTime;counts.birds++;
   for(let i=0;i<3;i++){
@@ -156,7 +176,7 @@ const valleyAudio=(()=>{
  addEventListener('pointerdown',unlock);addEventListener('keydown',unlock);addEventListener('click',unlock);
  document.addEventListener('visibilitychange',sync);
  addEventListener('pagehide',()=>{started=false;ctx?.close().catch(()=>{});});
- return {update,sync,state,punch,shot,rifleImpact,crash,rockHit,decode,playClip,clipReady,reset(){feet.Left=feet.Right=null;activeTime=0;lastContact=null;}};
+ return {update,sync,state,punch,shot,rifleImpact,crash,rockHit,splash,quack,decode,playClip,clipReady,reset(){feet.Left=feet.Right=null;activeTime=0;lastContact=null;}};
 })();
 const audioToggleOriginal=Du;Du=function(){audioToggleOriginal();valleyAudio.sync();};
 oe('soundBtn').title='All game sound (M)';oe('soundBtn').setAttribute('aria-label','Toggle all game sound (M)');

@@ -196,6 +196,9 @@ function fireRifle(){
  placeRifle();
  const dir=aimDir(),origin=rifleAt(RIFLE.eye),muzzle=rifleAt(RIFLE.muzzle);
  const hit=castShot(origin,dir);
+ // a bullet that meets the water splashes there and goes no further
+ const water=hit.kind!=='dwarf'&&typeof springBullet==='function'?springBullet(origin,dir,hit.distance):null;
+ if(water){hit.point.copy(water.point);hit.distance=water.distance;hit.kind='water';}
  rifle.last={kind:hit.kind,distance:hit.distance,point:hit.point.toArray()};
  if(hit.kind!=='dwarf'&&!poisonDwarf.state().defeated){ // closest approach of the bullet to Mosswick
   const dp=poisonDwarf.root.position,toDwarf=new L(dp.x-origin.x,dp.y+.7-origin.y,dp.z-origin.z),along=Mn(toDwarf.dot(dir),0,hit.distance);
@@ -210,7 +213,7 @@ function fireRifle(){
   puff(hit.point,'#ffe6b0',.45,.3,.1,.9);
   const d=poisonDwarf.state();showHit(d.defeated?'Mosswick · knocked out':'Mosswick · '+d.health+' / 100');
   setTimeout(()=>valleyAudio.punch('impact'),delay);
- }else if(hit.kind!=='sky'){
+ }else if(hit.kind!=='sky'&&hit.kind!=='water'){
   puff(hit.point,hit.kind==='ground'?'#cdbd90':'#9b8a68',.9,1.1,.35,.7);
   setTimeout(()=>valleyAudio.rifleImpact(),delay);
  }

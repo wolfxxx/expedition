@@ -88,7 +88,9 @@ const poisonDwarf=(()=>{
    const c=flight.center,wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
    flight.v.y-=15*dt;c.addScaledVector(flight.v,dt);flight.time+=dt;flight.peak=Math.max(flight.peak,c.y-.7-flight.origin.y);
    body.rotation.x+=flight.spin.x*dt;body.rotation.z+=flight.spin.z*dt;root.rotation.y+=flight.spin.y*dt;
-   const ground=world.height(c.x,c.z)+.45;
+   // over the lake he lands on the surface (splash!) and floats there, instead of sinking to the bed
+   const floor=(x,z)=>typeof waterDepth==='function'&&waterDepth(x,z)>.12?Math.max(world.height(x,z),waterLevel-.12):world.height(x,z);
+   const ground=floor(c.x,c.z)+.45;
    if(c.y<ground){
     c.y=ground;
     if(flight.v.y<-2.5&&flight.bounces<3){
@@ -99,7 +101,7 @@ const poisonDwarf=(()=>{
      api.onSettle?.({distance:Math.hypot(c.x-done.origin.x,c.z-done.origin.z),airTime:done.time,peak:done.peak,bounces:done.bounces,from:done.origin.toArray(),to:[c.x,world.height(c.x,c.z),c.z]});}
    }
    if(flight)body.position.set(0,.7,0).sub(new L(0,.7,0).applyEuler(body.rotation));
-   root.position.set(c.x,flight?c.y-.7:world.height(c.x,c.z),c.z);
+   root.position.set(c.x,flight?c.y-.7:floor(c.x,c.z),c.z);
    if(flight)return;
   }
   if(health<=0){

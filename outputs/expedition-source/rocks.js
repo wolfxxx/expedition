@@ -9,7 +9,7 @@ let stones=null,solid=null;
 function stoneList(){
  if(!stones||solid.length+stones.length!==Je.colliders.length){
   // stones are domes: their collider height equals their radius
-  stones=Je.colliders.filter(c=>c.height<=ROCK.maxHeight&&Math.abs(c.height-c.r)<.02);
+  stones=Je.colliders.filter(c=>!c.solid&&c.height<=ROCK.maxHeight&&Math.abs(c.height-c.r)<.02); // c.solid: the rowboat and the like, never drivable
   solid=Je.colliders.filter(c=>!stones.includes(c));
  }
  return stones;
