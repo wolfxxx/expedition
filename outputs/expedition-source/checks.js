@@ -92,4 +92,13 @@ check('Idle has no footstep contacts',beforeIdle.Left===afterIdle.Left&&beforeId
 key('Space',true);key('Space',false);expedition.advance(.5);const inAir=expedition.getState().worldAudio.contacts;
 check('Jump has no walking footstep contacts',afterIdle.Left===inAir.Left&&afterIdle.Right===inAir.Right);
 expedition.reset();
+{// a running jump keeps its speed: through the wind-up, the flight and the landing, and runs straight on (public API only)
+ expedition.reset();key('KeyW',true);key('ShiftLeft',true);expedition.advance(1);
+ const pos=()=>expedition.getState().humanPosition;let last=pos(),slowest=99,landed=false;
+ key('Space',true);key('Space',false);
+ for(let f=0;f<90;f++){expedition.advance(1/60);const p=pos(),v=Math.hypot(p[0]-last[0],p[2]-last[2])*60;last=p;slowest=Math.min(slowest,v);if(expedition.getState().jumpPhase==='landing')landed=true;}
+ const st=expedition.getState();key('KeyW',false);key('ShiftLeft',false);
+ check('A running jump lands and keeps running at full speed',landed&&slowest>4.2&&st.jumpPhase==='grounded'&&st.pose.animation==='Run');
+ expedition.reset();
+}
 const report=document.createElement('pre');report.id='test-results';report.style='position:absolute;inset:20px;background:#10271fee;color:white;z-index:999;padding:20px;overflow:auto';report.textContent=JSON.stringify({gaitContacts,armDiagnostic:window.armDiagnostic,results,final:expedition.getState()},null,2);document.body.append(report);

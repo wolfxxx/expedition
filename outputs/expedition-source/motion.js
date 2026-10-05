@@ -11,7 +11,10 @@ let jumpPhase='grounded',jumpTime=0,jumpY=0,jumpMomentum=new L();
 // rise and fall, so a long fall holds the legs reaching for the ground. Landing: the clip's absorb, blending back out.
 // Clip times (s): push-off 0.07, touch-down 0.67, absorbed 0.80. JUMP_V0 is the take-off speed (m/s).
 const JUMP_WIND=.16,JUMP_LAND=.40,JUMP_V0=4.25,JUMP_CLIP={off:.07,down:.67,absorbed:.80};
-let jumpAnchors=null;
+let jumpAnchors=null,jumpLandMoving=false;
+// Landing on the move (a direction held): keep the full speed and run straight on, the landing dip of the clip blending
+// out over the run in JUMP_RUN_LAND seconds. Landing with no direction held stops, as before.
+const JUMP_RUN_LAND=.22;
 function groundFeet(){
   const pose=Xt.getPose().joints;Xt.root.updateMatrixWorld(true);
   return Object.fromEntries(['Left','Right'].map(side=>{
@@ -35,7 +38,7 @@ function jumpPose(dt){
 }
 addEventListener('keydown',e=>{
   if(e.code==='Space'&&!e.repeat&&Te==='walking'&&!Le&&!rifleBusy&&jumpPhase==='grounded'){
-    jumpPhase='anticipation';jumpTime=0;jumpMomentum.copy(Ni);jumpAnchors=groundFeet();
+    jumpPhase='anticipation';jumpTime=0;jumpMomentum.copy(Ni);jumpAnchors=Ni.length()>1?null:groundFeet(); // on the move: no planted feet, keep going
   }
 });
 const walkOnGround=t_;
@@ -43,6 +46,9 @@ t_=function(dt){
   if(jumpPhase==='grounded'){const oldY=Xt.root.position.y;walkOnGround(dt);if(oldY-Xt.root.position.y>.30){Xt.root.position.y=oldY;jumpY=oldY;jumpPhase='airborne';jumpTime=.35;jumpVelocity=0;jumpMomentum.copy(Ni);}return;}
   jumpTime+=dt;
   if(jumpPhase==='anticipation'){
+    if(!jumpAnchors){ // a running (or walking) jump carries its speed through the wind-up
+      const q=Xt.root.position;q.addScaledVector(jumpMomentum,dt);Je.resolveCircle(q,.28);jg(q);Je.resolveCircle(q,.28);q.y=Je.walkHeight(q.x,q.z,q.y);
+    }
     jumpPose(dt);
     if(jumpTime>=JUMP_WIND){jumpPhase='airborne';jumpTime=0;jumpVelocity=4.25;jumpY=Xt.root.position.y;}
     return;
@@ -61,15 +67,24 @@ t_=function(dt){
     jumpPose(dt);
     if(jumpY<=floor&&jumpVelocity<0){
       Xt.root.position.y=floor;jumpHeight=jumpVelocity=0;jumpPhase='landing';jumpTime=0;
-      Xt.animate(0,0,0);jumpPose(0);Ni.copy(jumpMomentum).multiplyScalar(.4);
+      const input=Nu();jumpLandMoving=Math.hypot(input.x,input.y)>.01;
+      Xt.animate(0,0,0);jumpPose(0);Ni.copy(jumpMomentum).multiplyScalar(jumpLandMoving?1:.4);
     }
+    return;
+  }
+  if(jumpLandMoving){
+    walkOnGround(dt);
+    const k=jumpTime/JUMP_RUN_LAND;
+    Xt.poseMotion({label:'Running landing'});
+    Xt.applyClip('Jump',JUMP_CLIP.down+(JUMP_CLIP.absorbed-JUMP_CLIP.down)*Math.min(1,k),.85*(1-ease(0,1,k)));
+    if(jumpTime>=JUMP_RUN_LAND){jumpPhase='grounded';jumpTime=0;jumpLandMoving=false;}
     return;
   }
   jumpPose(dt);
   if(jumpTime>=JUMP_LAND){jumpPhase='grounded';jumpTime=0;Xt.animate(0,0,0);}
 };
 const doorAvailable=dc;dc=()=>jumpPhase==='grounded'&&doorAvailable();
-const resetMovement=Oa;oe('resetBtn').removeEventListener('click',resetMovement);Oa=function(){jumpPhase='grounded';jumpTime=jumpHeight=jumpVelocity=0;jumpMomentum.set(0,0,0);resetMovement();};oe('resetBtn').addEventListener('click',Oa);
+const resetMovement=Oa;oe('resetBtn').removeEventListener('click',resetMovement);Oa=function(){jumpPhase='grounded';jumpLandMoving=false;jumpTime=jumpHeight=jumpVelocity=0;jumpMomentum.set(0,0,0);resetMovement();};oe('resetBtn').addEventListener('click',Oa);
 
 function driverPad(){const p=Es(new L(1.62,0,-.32));p.y=Je.height(p.x,p.z);return p;}
 function clearPad(p){return Math.hypot(p.x,p.z)<87.5&&!Je.colliders.some(c=>Math.hypot(p.x-c.x,p.z-c.z)<c.r+.42);}

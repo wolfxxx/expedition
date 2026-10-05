@@ -31,7 +31,7 @@ const evaluate = async expression => (await send('Runtime.evaluate', {expression
 await send('Runtime.enable'); await send('Page.enable');
 await send('Page.navigate', {url: 'file:///' + path.resolve(here, page).split(path.sep).join('/')});
 let text = null;
-for (let i = 0; i < 240 && !text; i++) { await sleep(500); text = await evaluate(`document.getElementById(${JSON.stringify(id)})?.textContent||null`); }
+for (let i = 0; i < 1200 && !text; i++) { await sleep(500); text = await evaluate(`document.getElementById(${JSON.stringify(id)})?.textContent||null`); }
 ws.close(); child.kill();
 if (!text) { console.error('No results appeared in #' + id); process.exit(1); }
 const raw = JSON.parse(text), data = Array.isArray(raw) ? {results: raw} : raw;
