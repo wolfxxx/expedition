@@ -45,6 +45,7 @@ function mosswickSay(cat,force=false){
 }
 poisonDwarf.onEvent=(type,source)=>{
  if(type==='hurt')mosswickSay(source==='rifle'?'shot':'hurt',true);
+ else if(type==='ko'&&source==='headshot'){valleyAudio.stopChannel('mosswick');voice.speakingUntil=0;bubbleUntil=0;} // no head, no last words
  else if(type==='ko')mosswickSay('ko',true);
  else if(type==='respawn')mosswickSay('back',true);
  else if(type==='near-miss')mosswickSay('miss');

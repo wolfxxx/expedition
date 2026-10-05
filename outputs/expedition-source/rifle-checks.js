@@ -92,6 +92,26 @@ if(spot){
  check('Second shot knocks him out',R.fire()&&poisonDwarf.state().defeated);
  expedition.advance(1.7);aimAtDwarf();R.fire();check('A knocked-out dwarf is no longer a target',rifleNow().last.kind!=='dwarf');
 }
+// ---- headshots: one shot through the head ----
+function aimAtHead(){
+ for(let i=0;i<3;i++){
+  const e=R.eye(),h=new L();poisonDwarf.head.getWorldPosition(h);const yaw=Math.atan2(h.x-e[0],h.z-e[2]),pitch=Math.atan2(h.y+.03-e[1],Math.hypot(h.x-e[0],h.z-e[2]));
+  R.aim(yaw,pitch);expedition.advance(1/60);
+ }
+}
+if(spot){
+ poisonDwarf.resetHealth();expedition.advance(1.7);placeDwarfInLine(spot.a-.2,spot.a+.2);aimAtHead();
+ const spokenBefore=expedition.getState().voice.spoken,before=rifleNow().headshots||0,fired=R.fire(),d=poisonDwarf.state(),last=rifleNow().last;
+ check('A headshot kills Mosswick in one shot',fired&&last.kind==='dwarf'&&last.head&&d.defeated&&d.health===0);
+ check('His head is gone after a headshot',d.beheaded&&!poisonDwarf.head.visible&&rifleNow().headshots===before+1);
+ check('A headshot plays out in slow motion and is announced',roadkill.slow>0&&/HEADSHOT/.test(document.body.innerText));
+ expedition.advance(.5);
+ {const v=expedition.getState().voice;check('No last words from a man without a head',!(v.last&&v.last.cat==='ko'&&v.spoken>spokenBefore)&&!v.speaking);}
+ Oa();check('Reset gives him his head back',!poisonDwarf.state().beheaded&&poisonDwarf.head.visible&&!poisonDwarf.state().defeated);
+ lie();placeDwarfInLine(spot.a-.2,spot.a+.2);aimAtDwarf();R.fire();
+ check('A body shot still takes 50 health, not his head',rifleNow().last.kind==='dwarf'&&!rifleNow().last.head&&poisonDwarf.state().health===50&&!poisonDwarf.state().beheaded);
+ poisonDwarf.damage(100,null,'rifle');expedition.advance(1.7); // leave him knocked out, as the checks below expect
+}
 {const eye=new L(...R.eye());
  const tree=world.colliders.find(c=>c.r>=.25&&c.r<=.3&&c.height>3&&Math.hypot(c.x-tx,c.z-tz)>12&&Math.hypot(c.x-tx,c.z-tz)<60);
  const d=new L(tree.x-eye.x,tree.y+1.5-eye.y,tree.z-eye.z),len=d.length();d.normalize();

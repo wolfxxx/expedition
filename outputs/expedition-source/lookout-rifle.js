@@ -11,7 +11,7 @@ const RIFLE={
  restYaw:Math.atan2(-40,-30),               // resting heading: down the valley towards Mirror Spring
  back:1.37,side:.15,                        // feet are this far behind the butt, body this far left of the bore line
  pitchMin:-.55,pitchMax:.35,                // aim limits, radians
- cycle:1.6,damage:50,range:320,             // seconds per bolt cycle; dwarf health lost per hit; metres
+ cycle:1.6,damage:50,range:320,headRadius:.3,             // seconds per bolt cycle; dwarf health lost per hit; metres
  right:[-.43,.175,0],left:[-.72,.19,0],     // hand targets, in rifle coordinates (x forward, y up, z right)
  eye:[-.43,.462,0],muzzle:[.82,.35,0]
 };
@@ -24,7 +24,7 @@ const rifleReady=HumanRuntime.loadProp('__RIFLE_GLB__',RIFLE.length).then(model=
 });
 
 const rifle={mode:'idle',t:0,prone:0,yaw:RIFLE.restYaw,pitch:0,kick:0,recoil:0,scoped:false,scope:0,zoom:6,cooldown:0,
- shots:0,hits:0,last:null,range:null,start:{x:0,z:0,yaw:0},held:{yaw:0,pitch:0}};
+ shots:0,hits:0,headshots:0,last:null,range:null,start:{x:0,z:0,yaw:0},held:{yaw:0,pitch:0}};
 const rifleDeck=()=>lookoutTop+.015;
 const aimDir=(yaw=rifle.yaw,pitch=rifle.pitch)=>new L(Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
 const rifleAt=(p,out=new L())=>{rifleMount.updateMatrixWorld(true);return lookoutRifle.localToWorld(out.set(p[0],p[1],p[2]));};
@@ -139,13 +139,22 @@ function cylinderHit(o,d,cx,cz,r,y0,y1,max){
  for(const t of [(-b-q)/a,(-b+q)/a]){if(t<0||t>max)continue;const y=o.y+d.y*t;if(y>=y0&&y<=y1)return t;}
  return Infinity;
 }
-// Nearest thing along a ray: the dwarf, a tree or rock, or the ground.
+function sphereHit(o,d,c,r,max){
+ const ox=o.x-c.x,oy=o.y-c.y,oz=o.z-c.z,b=ox*d.x+oy*d.y+oz*d.z,disc=b*b-(ox*ox+oy*oy+oz*oz-r*r);if(disc<0)return Infinity;
+ const q=Math.sqrt(disc);for(const t of [-b-q,-b+q])if(t>=0&&t<=max)return t;return Infinity;
+}
+// the middle of Mosswick's head (hood and face), wherever his walk, nod or lean has put it
+const headCentre=new L();
+function dwarfHead(){poisonDwarf.root.updateMatrixWorld(true);return poisonDwarf.head.localToWorld(headCentre.set(0,.02,.03));}
+// Nearest thing along a ray: the dwarf (his head or his body), a tree or rock, or the ground.
 function castShot(o,d,max=RIFLE.range){
  let best={distance:max,kind:'sky'};
  const dwarf=poisonDwarf.state();
  if(!dwarf.defeated){
-  const p=poisonDwarf.root.position,t=cylinderHit(o,d,p.x,p.z,.42,p.y,p.y+1.45,best.distance);
-  if(t<best.distance)best={distance:t,kind:'dwarf'};
+  const p=poisonDwarf.root.position,t=cylinderHit(o,d,p.x,p.z,.42,p.y,p.y+1.45,best.distance),th=sphereHit(o,d,dwarfHead(),RIFLE.headRadius,best.distance);
+  // the head sits inside the top of the body's cylinder: a ray that meets the head at all, at about the cylinder's wall, is a headshot
+  if(th<Infinity&&th<t+.45)best={distance:th,kind:'dwarf',head:true};
+  else if(t<best.distance)best={distance:t,kind:'dwarf'};
  }
  for(const c of world.colliders){
   if(Math.hypot(c.x-o.x,c.z-o.z)>best.distance+c.r)continue;
@@ -188,6 +197,53 @@ function stepEffects(dt){
   if(u>=1){f.mesh.removeFromParent();f.mesh.material.dispose();fxList.splice(i,1);}
  }
 }
+// A head bursting: a flash, a cloud of glowing poison, scraps of hood, face and beard and the hood's tip thrown out
+// along the shot, and a spray of green droplets that splash and stain the ground. Everything clears itself.
+const burstCone=new en(0,1,1,8),burstMats={hood:'#243c35',skin:'#a9a17a',beard:'#aaa995',ichor:'#4fd11a'};
+function burstPiece(geometry,color,glow,at,velocity,size,life,stain){
+ const m=new ie(geometry,new be({color,roughness:.85,transparent:true,opacity:1,...(glow?{emissive:new Wt(color),emissiveIntensity:glow}:{})}));
+ m.position.copy(at);m.scale.copy(size);m.rotation.set(Math.random()*6,Math.random()*6,Math.random()*6);
+ const v=velocity.clone(),spin=new L((Math.random()-.5)*16,(Math.random()-.5)*16,(Math.random()-.5)*16);let last=0,down=false;
+ fxAdd(m,life,(f,u)=>{
+  const dt=f.age-last;last=f.age;
+  if(!down){
+   v.y-=9.8*dt;m.position.addScaledVector(v,dt);m.rotation.x+=spin.x*dt;m.rotation.y+=spin.y*dt;m.rotation.z+=spin.z*dt;
+   const ground=world.height(m.position.x,m.position.z)+size.y*.5;
+   if(m.position.y<ground){
+    m.position.y=ground;
+    if(stain||Math.abs(v.y)<2.2){down=true;if(stain){m.rotation.set(0,Math.random()*6,0);m.scale.set(size.x*2.6,.006,size.z*2.6);m.position.y=ground-size.y*.5+.02;}}
+    else{v.y*=-.35;v.x*=.6;v.z*=.6;spin.multiplyScalar(.6);}
+   }
+  }
+  m.material.opacity=u<.7?1:1-(u-.7)/.3;
+ });
+ return m;
+}
+function headBurst(at,dir){
+ const along=new L(dir.x,0,dir.z).normalize(),random=(a,b)=>a+Math.random()*(b-a);
+ const flashBall=new ie(fxSphere,new be({color:'#eaffc0',emissive:new Wt('#9dff3c'),emissiveIntensity:6,roughness:1,transparent:true,opacity:.95}));
+ flashBall.position.copy(at);fxAdd(flashBall,.12,(f,u)=>{flashBall.scale.setScalar(.18+u*.55);flashBall.material.opacity=.95*(1-u);});
+ // a plume of poison mist blown out along the shot
+ for(let i=0;i<7;i++){const k=i/6;puff(at.clone().addScaledVector(along,.2+k*1.3).add(new L(random(-.15,.15),random(0,.35)+k*.2,random(-.15,.15))),i%2?'#7ee82a':'#b4ff63',random(.35,.6)+k*.35,random(.9,1.6),random(.2,.5),.7-k*.25);}
+ const throwAt=(speed,lift)=>along.clone().multiplyScalar(speed*random(.6,1.3)).add(new L(random(-1,1)*speed*.6,random(.5,1.4)*lift,random(-1,1)*speed*.6));
+ for(let i=0;i<26;i++){
+  const kind=['hood','hood','skin','beard','skin'][i%5],s=random(.05,.12);
+  burstPiece(fxSphere,burstMats[kind],0,at,throwAt(random(3.5,8),random(3,6)),new L(s*random(.8,1.7),s*random(.6,1),s*random(.8,1.4)),random(4,6),false);
+ }
+ burstPiece(burstCone,burstMats.hood,0,at.clone().add(new L(0,.2,0)),new L(along.x*2.5,8,along.z*2.5),new L(.2,.32,.18),6,false);    // the hood's tip, sailing high
+ for(let i=0;i<90;i++){const s=random(.025,.055);burstPiece(fxSphere,burstMats.ichor,.55,at,throwAt(random(2,10),random(1,5)),new L(s,s,s),random(3.5,6.5),true);}
+ // the neck keeps spurting for a second as he falls
+ const spurt=new ie(fxSphere,new be({visible:false}));let gush=0;
+ fxAdd(spurt,1.3,(f,u)=>{
+  gush+=(1-u)*2.2;
+  for(;gush>=1;gush--){const at2=dwarfHead().clone(),s=random(.02,.045),up=new L(random(-1.2,1.2),random(3,6)*(1-u*.6),random(-1.2,1.2));
+   burstPiece(fxSphere,burstMats.ichor,.55,at2,up,new L(s,s,s),random(2.5,4),true);}
+ });
+ // a stain where he stood
+ const stain=new ie(fxSphere,new be({color:'#7fdc2c',emissive:new Wt('#5fbf1c'),emissiveIntensity:.6,roughness:.6,transparent:true,opacity:.85}));
+ const base=poisonDwarf.root.position;stain.position.set(base.x+along.x*.6,world.height(base.x+along.x*.6,base.z+along.z*.6)+.02,base.z+along.z*.6);stain.scale.set(.01,.004,.01);
+ fxAdd(stain,7,(f,u)=>{const g=Math.min(1,u*8);stain.scale.set(1.1*g,.004,.9*g);stain.material.opacity=u<.75?.85:.85*(1-(u-.75)/.25);});
+}
 const rifleFx=Fu;Fu=function(dt){rifleFx(dt);stepEffects(dt);};
 
 function fireRifle(){
@@ -199,7 +255,7 @@ function fireRifle(){
  // a bullet that meets the water splashes there and goes no further
  const water=hit.kind!=='dwarf'&&typeof springBullet==='function'?springBullet(origin,dir,hit.distance):null;
  if(water){hit.point.copy(water.point);hit.distance=water.distance;hit.kind='water';}
- rifle.last={kind:hit.kind,distance:hit.distance,point:hit.point.toArray()};
+ rifle.last={kind:hit.kind,head:!!hit.head,distance:hit.distance,point:hit.point.toArray()};
  if(hit.kind!=='dwarf'&&!poisonDwarf.state().defeated){ // closest approach of the bullet to Mosswick
   const dp=poisonDwarf.root.position,toDwarf=new L(dp.x-origin.x,dp.y+.7-origin.y,dp.z-origin.z),along=Mn(toDwarf.dot(dir),0,hit.distance);
   if(along>3&&toDwarf.distanceTo(dir.clone().multiplyScalar(along))<2.5)poisonDwarf.onEvent?.('near-miss','rifle');
@@ -208,7 +264,15 @@ function fireRifle(){
  flash(muzzle.clone().addScaledVector(dir,.1),dir);if(rifle.scope<.5)puff(muzzle.clone().addScaledVector(dir,.3),'#d9d9d0',.4,1.6,.4,.4); // not through the lens
  tracer(muzzle,hit.point);valleyAudio.shot();
  const delay=hit.distance/343*1000;
- if(hit.kind==='dwarf'){
+ if(hit.head){
+  // one shot through the head: it bursts, he drops, and the moment plays out in slow motion
+  const centre=dwarfHead().clone();
+  poisonDwarf.damage(100,null,'headshot');poisonDwarf.behead();rifle.hits++;rifle.headshots++;
+  headBurst(centre,dir);
+  showHit('HEADSHOT · Mosswick');hitHud.style.fontSize='22px';hitHud.style.background='#3d7a1ee6';
+  if(typeof roadkill!=='undefined')roadkill.slow=ROADKILL.slowSeconds;
+  setTimeout(()=>valleyAudio.headshot(),delay);
+ }else if(hit.kind==='dwarf'){
   const took=poisonDwarf.damage(RIFLE.damage,null,'rifle');rifle.hits++;
   puff(hit.point,'#ffe6b0',.45,.3,.1,.9);
   const d=poisonDwarf.state();showHit(d.defeated?'Mosswick · knocked out':'Mosswick · '+d.health+' / 100');
@@ -293,7 +357,7 @@ document.body.append(rifleButtons);
 const hitHud=document.createElement('div');
 hitHud.style=rifleStyle+'left:50%;top:58%;transform:translateX(-50%);padding:6px 14px;border-radius:10px;background:#7a2a1ecc;display:none;font-size:14px;z-index:6';
 document.body.append(hitHud);let hitUntil=0;
-function showHit(text){hitHud.textContent=text;hitHud.style.display='block';hitUntil=Fa+2.5;}
+function showHit(text){hitHud.style.fontSize='14px';hitHud.style.background='#7a2a1ecc';hitHud.textContent=text;hitHud.style.display='block';hitUntil=Fa+2.5;}
 // Crosshair for the chase view (placed where the bullet will go) and the scope reticle.
 const crosshair=document.createElement('div');
 crosshair.style=rifleStyle+'z-index:5;width:22px;height:22px;margin:-11px 0 0 -11px;display:none;background:'
@@ -341,7 +405,7 @@ const rifleState=window.expedition.getState;
 window.expedition.getState=()=>({...rifleState(),
  lookoutRifle:lookoutRifle?{loaded:true,position:rifleMount.position.toArray(),...lookoutRifle.userData}:{loaded:false},
  rifle:{mode:rifle.mode,prone:rifle.prone,yaw:rifle.yaw,pitch:rifle.pitch,scoped:rifle.scoped,scope:rifle.scope,zoom:rifle.zoom,
-  cooldown:rifle.cooldown,shots:rifle.shots,hits:rifle.hits,last:rifle.last,range:rifle.range}});
+  cooldown:rifle.cooldown,shots:rifle.shots,hits:rifle.hits,headshots:rifle.headshots,last:rifle.last,range:rifle.range}});
 window.expedition.rifle={mount:mountRifle,dismount:dismountRifle,fire:fireRifle,scope:toggleScope,reach:rifleReach,cast:castShot,
  aim(yaw,pitch){rifle.yaw=yaw;rifle.pitch=Mn(pitch,RIFLE.pitchMin,RIFLE.pitchMax);},
  eye:()=>rifleAt(RIFLE.eye).toArray(),muzzle:()=>rifleAt(RIFLE.muzzle).toArray(),bodyRoot:y=>bodyRoot(y).toArray(),

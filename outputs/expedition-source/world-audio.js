@@ -1,7 +1,7 @@
 // Local synthesized ambience and Foley; no media downloads or network requests.
 const valleyAudio=(()=>{
  let ctx,master,wind,water,noise,analyser,birdAt=0,started=false;
- const counts={steps:0,takeoffs:0,landings:0,birds:0,swings:0,impacts:0,shots:0,rifleImpacts:0,crashes:0,voices:0,rockHits:0,splashes:0,quacks:0};
+ const counts={steps:0,takeoffs:0,landings:0,birds:0,swings:0,impacts:0,shots:0,rifleImpacts:0,headshots:0,crashes:0,voices:0,rockHits:0,splashes:0,quacks:0};
  function noiseLayer(frequency,type,volume){
   const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
   source.buffer=noise;source.loop=true;filter.type=type;filter.frequency.value=frequency;filter.Q.value=.45;gain.gain.value=volume;
@@ -71,6 +71,14 @@ const valleyAudio=(()=>{
   noiseHit('lowpass',800,140,.9,.6,.34);noiseHit('lowpass',520,110,1.2,.36,.72);
   // bolt up-and-back, then forward-and-down
   for(const d of [.62,1.08]){noiseHit('bandpass',2400,1500,.05,.5,d,3);tone(1900,1100,.04,.12,d,'square');}
+ }
+ // A headshot: a sharp wet crack, a meaty pop with a sub-bass punch, a spatter of droplets, and a bright bell 'ding'.
+ function headshot(){
+  if(!started||ui||document.hidden||ctx.state!=='running')return;
+  counts.headshots++;
+  noiseHit('highpass',5200,2200,.05,1.6);noiseHit('lowpass',3600,180,.42,2.2);tone(240,52,.22,1.0);tone(72,34,.6,.9);
+  for(let i=0;i<9;i++)noiseHit('bandpass',1400+Math.random()*2200,500,.05+Math.random()*.05,.25+Math.random()*.35,.07+i*.045+Math.random()*.03,5);
+  tone(1568,1560,1.1,.22,.02);tone(2349,2340,.8,.11,.02);tone(3136,3130,.5,.05,.02);
  }
  function rifleImpact(){
   if(!started||ui||document.hidden||ctx.state!=='running')return;
@@ -176,7 +184,7 @@ const valleyAudio=(()=>{
  addEventListener('pointerdown',unlock);addEventListener('keydown',unlock);addEventListener('click',unlock);
  document.addEventListener('visibilitychange',sync);
  addEventListener('pagehide',()=>{started=false;ctx?.close().catch(()=>{});});
- return {update,sync,state,punch,shot,rifleImpact,crash,rockHit,splash,quack,decode,playClip,clipReady,reset(){feet.Left=feet.Right=null;activeTime=0;lastContact=null;}};
+ return {update,sync,state,punch,shot,headshot,stopChannel(name){if(channels[name])try{channels[name].stop();}catch{}channels[name]=null;},rifleImpact,crash,rockHit,splash,quack,decode,playClip,clipReady,reset(){feet.Left=feet.Right=null;activeTime=0;lastContact=null;}};
 })();
 const audioToggleOriginal=Du;Du=function(){audioToggleOriginal();valleyAudio.sync();};
 oe('soundBtn').title='All game sound (M)';oe('soundBtn').setAttribute('aria-label','Toggle all game sound (M)');
