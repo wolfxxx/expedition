@@ -255,7 +255,7 @@ function spFeathers(x,y,z,count=10){
 }
 // startled into flight: the duck beats its wings, flies a short hop to another part of the lake and splashes down
 function spStartle(duck,awayFrom,quackLevel=1){
- if(duck.air)return;
+ if(duck.air||duck.dead)return;
  let best=null,bestScore=-1;
  for(let k=0;k<10;k++){
   const p=spPickWater(.8);if(!p)continue;
@@ -268,8 +268,50 @@ function spStartle(duck,awayFrom,quackLevel=1){
  duck.air.vy=duck.air.g*duck.air.T/2;duck.fleeing=2.5;duck.target=null;
  spFeathers(duck.x,waterLevel+.15,duck.z,12);addRipple(duck.x,duck.z,.8);valleyAudio.quack(quackLevel);
 }
+// ---- shooting ducks (the lookout rifle, lookout-rifle.js) ---------------------------------------------------------------------------------
+// A hit duck bursts into feathers, gives a last squawk and drops; it floats belly up, drifts and finally sinks, and a new
+// duck turns up somewhere else on the lake. The others take fright and fly.
+const SP_DUCK_RESPAWN=30,spDuckTally={shot:0};
+function spDuckHit(o,d,max){ // the nearest duck along a ray, within max metres
+ let best=null;
+ for(const duck of spDucks){
+  if(duck.dead)continue;
+  const m=duck.mesh,k=m.scale.x,cx=m.position.x-o.x,cy=m.position.y+.08*k-o.y,cz=m.position.z-o.z,r=.24*k;
+  const b=cx*d.x+cy*d.y+cz*d.z,disc=b*b-(cx*cx+cy*cy+cz*cz-r*r);if(disc<0)continue;
+  const t=b-Math.sqrt(disc);if(t>0&&t<max){max=t;best={distance:t,duck};}
+ }
+ return best;
+}
+function spShootDuck(duck){
+ const m=duck.mesh;
+ duck.dead={t:0,y:m.position.y,vy:duck.air?1.2:.8,spin:(spRand()-.5)*10,floating:false};duck.air=null;duck.target=null;duck.fleeing=0;
+ spFeathers(m.position.x,m.position.y+.1,m.position.z,28);
+ if(m.position.y<waterLevel+.25){spSplash(duck.x,duck.z,.55);addRipple(duck.x,duck.z,1);}
+ m.userData.wings.forEach(w=>{w.rotation.z=w.userData.side*1.1;});m.userData.neck.rotation.x=1.1;
+ valleyAudio.quack(1.4);spDuckTally.shot++;
+ for(const other of spDucks)if(other!==duck&&Math.hypot(other.x-duck.x,other.z-duck.z)<20)spStartle(other,{x:duck.x,z:duck.z},.7);
+}
+function spUpdateShotDuck(duck,dt,time){
+ const D=duck.dead,m=duck.mesh,afloat=waterLevel+.09;D.t+=dt;
+ if(!D.floating){ // tumbling down
+  D.vy-=9.8*dt;D.y+=D.vy*dt;m.rotation.x+=D.spin*.6*dt;m.rotation.z+=D.spin*dt;
+  if(D.y<=afloat&&D.vy<0){D.y=afloat;D.floating=true;spSplash(duck.x,duck.z,.5);addRipple(duck.x,duck.z,.9);}
+ }else{ // belly up, drifting a little, then sinking
+  m.rotation.z=La(m.rotation.z,Math.PI,3,dt);m.rotation.x=La(m.rotation.x,Math.sin(time*.8+duck.id)*.06,3,dt);
+  const nx=duck.x+Math.sin(duck.heading)*.06*dt,nz=duck.z+Math.cos(duck.heading)*.06*dt;if(spWet(nx,nz)>.45){duck.x=nx;duck.z=nz;}
+  const sink=Math.max(0,D.t-(SP_DUCK_RESPAWN-4))/4;D.y=afloat+Math.sin(time*1.6+duck.id)*.008-sink*.4;
+ }
+ m.position.set(duck.x,D.y,duck.z);
+ if(D.t>=SP_DUCK_RESPAWN)spReviveDuck(duck);
+}
+function spReviveDuck(duck,at=spPickWater()){
+ const m=duck.mesh;duck.dead=null;duck.x=at[0];duck.z=at[1];duck.heading=spRand()*6.28;duck.target=null;duck.fleeing=0;duck.dip=0;
+ m.rotation.set(0,duck.heading,0);m.userData.wings.forEach(w=>{w.rotation.z=0;});m.userData.neck.rotation.x=.15;m.position.set(duck.x,waterLevel+.045,duck.z);
+}
+{const duckReset=Oa;Oa=function(){duckReset();for(const duck of spDucks)if(duck.dead)spReviveDuck(duck);};window.expedition.reset=Oa;}
 function spUpdateDucks(dt,time,threats){ // threats: [{x, z, radius}]
  for(const duck of spDucks){
+  if(duck.dead){spUpdateShotDuck(duck,dt,time);continue;}
   if(duck.air){ // in the air
    const a=duck.air,m=duck.mesh;a.t+=dt;const u=Math.min(1,a.t/a.T);
    duck.x=a.fx+(a.tx-a.fx)*u;duck.z=a.fz+(a.tz-a.fz)*u;duck.heading=Math.atan2(a.tx-a.fx,a.tz-a.fz);
@@ -378,7 +420,7 @@ function spUpdateFish(dt,focus){
  world.resolveCircle=function(p,r,...rest){
   let hit=resolveBeforeDucks.call(this,p,r,...rest);
   for(const duck of spDucks){
-   if(duck.air)continue;
+   if(duck.air||duck.dead)continue;
    const min=.26*duck.mesh.scale.x+r,dx=p.x-duck.x,dz=p.z-duck.z,distance=Math.hypot(dx,dz);
    if(distance<min){const nx=distance>1e-4?dx/distance:1,nz=distance>1e-4?dz/distance:0;p.x=duck.x+nx*min;p.z=duck.z+nz*min;hit=true;}
   }
@@ -424,7 +466,7 @@ function spUpdateInteractions(dt){
   // driving into a duck: it bursts into flight, honking, rather than being driven through
   zt.root.updateMatrixWorld(true);
   for(const duck of spDucks){
-   if(duck.air)continue;
+   if(duck.air||duck.dead)continue;
    const local=zt.root.worldToLocal(new L(duck.x,zt.root.position.y,duck.z));
    if(Math.abs(local.x)<1.25&&local.z>-2.2&&local.z<2.4){spStartle(duck,{x:zt.root.position.x,z:zt.root.position.z});le*=.93;roadkill.shake=Math.max(roadkill.shake,.12);}
   }
@@ -456,7 +498,7 @@ Fu=function(dt){
  spUpdateFish(dt,{x:who.x,z:who.z});
  spUpdateInteractions(dt);
 };
-Object.assign(window.expedition.spring,{splash:spSplash,bullet:springBullet,ducks:spDucks,flies:spFlies,fish:spFishState,boat:spBoat,wade:spWade,
+Object.assign(window.expedition.spring,{splash:spSplash,bullet:springBullet,ducks:spDucks,duckHit:spDuckHit,shootDuck:spShootDuck,duckTally:spDuckTally,flies:spFlies,fish:spFishState,boat:spBoat,wade:spWade,
  counts:{reeds:reedBases.length,pads:pads.length,flowers:flowerPads.length,weeds:weedBases.length,heads:cattailHeads.length}});
 const springLifeState=window.expedition.getState;
-window.expedition.getState=()=>({...springLifeState(),spring:{ducks:spDucks.length,dragonflies:spFlies.length,fishJumps:spFishState.jumps,...window.expedition.spring.counts,activeRipples:ripples.filter(r=>Fa-r.z<4&&r.w>0).length}});
+window.expedition.getState=()=>({...springLifeState(),spring:{ducks:spDucks.length,ducksShot:spDuckTally.shot,ducksDown:spDucks.filter(d=>d.dead).length,dragonflies:spFlies.length,fishJumps:spFishState.jumps,...window.expedition.spring.counts,activeRipples:ripples.filter(r=>Fa-r.z<4&&r.w>0).length}});

@@ -24,7 +24,10 @@ const rifleReady=HumanRuntime.loadProp('__RIFLE_GLB__',RIFLE.length).then(model=
 });
 
 const rifle={mode:'idle',t:0,prone:0,yaw:RIFLE.restYaw,pitch:0,kick:0,recoil:0,scoped:false,scope:0,zoom:6,cooldown:0,
- shots:0,hits:0,headshots:0,last:null,range:null,start:{x:0,z:0,yaw:0},held:{yaw:0,pitch:0}};
+ shots:0,hits:0,headshots:0,ducks:0,last:null,range:null,start:{x:0,z:0,yaw:0},held:{yaw:0,pitch:0},want:{yaw:RIFLE.restYaw,pitch:0}};
+// Aim input (mouse, drag, keys) moves rifle.want; each step the rifle and its camera ease toward it over about 30 ms, so
+// however unevenly the mouse events arrive the view turns smoothly.
+const aimToward=(yaw,pitch)=>{rifle.want.yaw=yaw;rifle.want.pitch=Mn(pitch,RIFLE.pitchMin,RIFLE.pitchMax);};
 const rifleDeck=()=>lookoutTop+.015;
 const aimDir=(yaw=rifle.yaw,pitch=rifle.pitch)=>new L(Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
 const rifleAt=(p,out=new L())=>{rifleMount.updateMatrixWorld(true);return lookoutRifle.localToWorld(out.set(p[0],p[1],p[2]));};
@@ -63,7 +66,7 @@ function dismountRifle(){
 }
 function endRifle(){
  rifle.mode='idle';rifle.t=0;rifle.prone=0;rifle.scoped=false;rifle.scope=0;rifle.cooldown=0;rifle.kick=rifle.recoil=0;
- rifle.yaw=RIFLE.restYaw;rifle.pitch=0;rifleBusy=false;freeMouse();
+ rifle.yaw=RIFLE.restYaw;rifle.pitch=0;aimToward(rifle.yaw,0);rifleBusy=false;freeMouse();
  if(lookoutRifle)lookoutRifle.visible=true;Xt.setFirstPerson(false);Xt.animate(0,0,0);placeRifle();
 }
 function toggleScope(on=!rifle.scoped){if(rifle.mode==='aiming')rifle.scoped=on;}
@@ -75,14 +78,14 @@ function rifleStep(dt){
  rifle.recoil*=Math.exp(-dt*6);rifle.kick*=Math.exp(-dt*5);
  let handWeight=0;
  if(rifle.mode==='mounting'){
-  rifle.t+=dt;const t=rifle.t,walk=ease(0,.55,t),before=root.position.clone();
+  aimToward(rifle.yaw,rifle.pitch);rifle.t+=dt;const t=rifle.t,walk=ease(0,.55,t),before=root.position.clone();
   root.position.set(lerp(rifle.start.x,feet.x,walk),lookoutTop,lerp(rifle.start.z,feet.z,walk));
   root.rotation.y=rifle.start.yaw+uc(rifle.start.yaw,rifle.yaw)*ease(.05,.55,t);
   rifle.prone=ease(.55,1.5,t);handWeight=ease(.9,1.5,t);
   Xt.animate(dt,t<.55?before.distanceTo(root.position)/dt:0,0);
   if(t>=1.5){rifle.mode='aiming';rifle.prone=1;handWeight=1;}
  }else if(rifle.mode==='dismounting'){
-  rifle.t+=dt;rifle.prone=1-ease(0,.9,rifle.t);handWeight=1-ease(0,.4,rifle.t);
+  aimToward(rifle.yaw,rifle.pitch);rifle.t+=dt;rifle.prone=1-ease(0,.9,rifle.t);handWeight=1-ease(0,.4,rifle.t);
   root.position.copy(feet);root.rotation.y=rifle.yaw;Xt.animate(dt,0,0);
   if(rifle.t>=.9){
    Wn=rifle.yaw;bs=.29;Da=rifle.held.Da||6;rifle.mode='idle';rifle.prone=0;rifleBusy=false;rifle.scope=0;
@@ -90,7 +93,8 @@ function rifleStep(dt){
   }
  }else{
   const input=Nu(),zoom=rifle.scope>.5?55/scopeFov():1;
-  rifle.yaw-=input.x*dt*.7/zoom;rifle.pitch=Mn(rifle.pitch+input.y*dt*.45/zoom,RIFLE.pitchMin,RIFLE.pitchMax);
+  aimToward(rifle.want.yaw-input.x*dt*.7/zoom,rifle.want.pitch+input.y*dt*.45/zoom);
+  const follow=1-Math.exp(-dt*32);rifle.yaw+=(rifle.want.yaw-rifle.yaw)*follow;rifle.pitch+=(rifle.want.pitch-rifle.pitch)*follow;
   root.position.copy(feet);root.rotation.y=rifle.yaw;handWeight=1;Xt.animate(dt,0,0);
  }
  placeRifle();
@@ -122,7 +126,7 @@ function rifleCamera(dt,snap){
  }else if(rifle.mode==='dismounting'){ // glide out to the normal walking camera while standing up
   const w=ease(0,.9,rifle.t),p=Xt.root.position,ty=p.y+1.18,da=rifle.held.Da||6;
   pos.lerp(new L(p.x-s*da*Math.cos(.29),ty+Math.sin(.29)*da+.45,p.z-c*da*Math.cos(.29)),w);at.lerp(new L(p.x,ty,p.z),w);Ze.position.copy(pos);
- }else if(snap||rifle.scope>.98)Ze.position.copy(pos);else Ze.position.lerp(pos,1-Math.exp(-14*dt));
+ }else Ze.position.copy(pos); // locked to the rifle: the aim itself is what eases
  Ze.up.set(0,1,0);if(Math.abs(Ze.fov-fov)>.01){Ze.fov=fov;Ze.updateProjectionMatrix();}
  Ze.lookAt(at);
  // hide the body and rifle while looking through the scope so neither fills the lens
@@ -161,6 +165,8 @@ function castShot(o,d,max=RIFLE.range){
   const t=cylinderHit(o,d,c.x,c.z,c.r,c.y,c.y+c.height,best.distance);
   if(t<best.distance)best={distance:t,kind:'obstacle'};
  }
+ // the ducks on Mirror Spring (spring-life.js)
+ const duck=spDuckHit(o,d,best.distance);if(duck)best={distance:duck.distance,kind:'duck',duck:duck.duck};
  // terrain: march in 0.75 m steps, then bisect the crossing
  let prev=0;
  for(let t=.75;t<=best.distance+.75;t+=.75){
@@ -253,14 +259,14 @@ function fireRifle(){
  const dir=aimDir(),origin=rifleAt(RIFLE.eye),muzzle=rifleAt(RIFLE.muzzle);
  const hit=castShot(origin,dir);
  // a bullet that meets the water splashes there and goes no further
- const water=hit.kind!=='dwarf'&&typeof springBullet==='function'?springBullet(origin,dir,hit.distance):null;
+ const water=hit.kind!=='dwarf'&&hit.kind!=='duck'&&typeof springBullet==='function'?springBullet(origin,dir,hit.distance):null;
  if(water){hit.point.copy(water.point);hit.distance=water.distance;hit.kind='water';}
  rifle.last={kind:hit.kind,head:!!hit.head,distance:hit.distance,point:hit.point.toArray()};
  if(hit.kind!=='dwarf'&&!poisonDwarf.state().defeated){ // closest approach of the bullet to Mosswick
   const dp=poisonDwarf.root.position,toDwarf=new L(dp.x-origin.x,dp.y+.7-origin.y,dp.z-origin.z),along=Mn(toDwarf.dot(dir),0,hit.distance);
   if(along>3&&toDwarf.distanceTo(dir.clone().multiplyScalar(along))<2.5)poisonDwarf.onEvent?.('near-miss','rifle');
  }
- rifle.recoil=1;rifle.kick=.05;rifle.pitch=Mn(rifle.pitch+.012,RIFLE.pitchMin,RIFLE.pitchMax);
+ rifle.recoil=1;rifle.kick=.05;rifle.pitch=Mn(rifle.pitch+.012,RIFLE.pitchMin,RIFLE.pitchMax);aimToward(rifle.want.yaw,rifle.want.pitch+.012);
  flash(muzzle.clone().addScaledVector(dir,.1),dir);if(rifle.scope<.5)puff(muzzle.clone().addScaledVector(dir,.3),'#d9d9d0',.4,1.6,.4,.4); // not through the lens
  tracer(muzzle,hit.point);valleyAudio.shot();
  const delay=hit.distance/343*1000;
@@ -272,6 +278,10 @@ function fireRifle(){
   showHit('HEADSHOT · Mosswick');hitHud.style.fontSize='22px';hitHud.style.background='#3d7a1ee6';
   if(typeof roadkill!=='undefined')roadkill.slow=ROADKILL.slowSeconds;
   setTimeout(()=>valleyAudio.headshot(),delay);
+ }else if(hit.kind==='duck'){
+  spShootDuck(hit.duck);rifle.hits++;rifle.ducks++;
+  showHit(rifle.ducks===1?'Duck down!':'Duck down! · '+rifle.ducks+' today');
+  setTimeout(()=>valleyAudio.rifleImpact(),delay);
  }else if(hit.kind==='dwarf'){
   const took=poisonDwarf.damage(RIFLE.damage,null,'rifle');rifle.hits++;
   puff(hit.point,'#ffe6b0',.45,.3,.1,.9);
@@ -309,7 +319,7 @@ rifleCanvas.addEventListener('pointermove',e=>{
  Wn=rifle.held.yaw;bs=rifle.held.bs; // the walking camera must not follow a drag made while aiming
  if(rifle.mode==='aiming'&&mouseLocked()){
   const zoom=rifle.scope>.5?55/scopeFov():1;
-  rifle.yaw-=e.movementX*.0030/zoom;rifle.pitch=Mn(rifle.pitch-e.movementY*.0022/zoom,RIFLE.pitchMin,RIFLE.pitchMax);return;
+  aimToward(rifle.want.yaw-e.movementX*.0030/zoom,rifle.want.pitch-e.movementY*.0022/zoom);return;
  }
  if(!rifleDrag||e.pointerId!==rifleDrag.id)return;
  const dx=e.clientX-rifleDrag.x,dy=e.clientY-rifleDrag.y;
@@ -317,7 +327,7 @@ rifleCanvas.addEventListener('pointermove',e=>{
  if(rifle.mode!=='aiming'||!rifleDrag.drag)return;
  rifleDrag.x=e.clientX;rifleDrag.y=e.clientY;
  const zoom=rifle.scope>.5?55/scopeFov():1;
- rifle.yaw-=dx*.0042/zoom;rifle.pitch=Mn(rifle.pitch-dy*.003/zoom,RIFLE.pitchMin,RIFLE.pitchMax);
+ aimToward(rifle.want.yaw-dx*.0042/zoom,rifle.want.pitch-dy*.003/zoom);
 });
 rifleCanvas.addEventListener('pointerup',e=>{
  if(rifleDrag&&e.pointerId===rifleDrag.id){if(!rifleDrag.drag&&performance.now()-rifleDrag.time<350)fireRifle();rifleDrag=null;}
@@ -404,9 +414,9 @@ pc=function(){
 const rifleState=window.expedition.getState;
 window.expedition.getState=()=>({...rifleState(),
  lookoutRifle:lookoutRifle?{loaded:true,position:rifleMount.position.toArray(),...lookoutRifle.userData}:{loaded:false},
- rifle:{mode:rifle.mode,prone:rifle.prone,yaw:rifle.yaw,pitch:rifle.pitch,scoped:rifle.scoped,scope:rifle.scope,zoom:rifle.zoom,
-  cooldown:rifle.cooldown,shots:rifle.shots,hits:rifle.hits,headshots:rifle.headshots,last:rifle.last,range:rifle.range}});
+ rifle:{mode:rifle.mode,prone:rifle.prone,yaw:rifle.want.yaw,pitch:rifle.want.pitch,barrel:{yaw:rifle.yaw,pitch:rifle.pitch},scoped:rifle.scoped,scope:rifle.scope,zoom:rifle.zoom,
+  cooldown:rifle.cooldown,shots:rifle.shots,hits:rifle.hits,headshots:rifle.headshots,ducks:rifle.ducks,last:rifle.last,range:rifle.range}});
 window.expedition.rifle={mount:mountRifle,dismount:dismountRifle,fire:fireRifle,scope:toggleScope,reach:rifleReach,cast:castShot,
- aim(yaw,pitch){rifle.yaw=yaw;rifle.pitch=Mn(pitch,RIFLE.pitchMin,RIFLE.pitchMax);},
+ aim(yaw,pitch){rifle.yaw=yaw;rifle.pitch=Mn(pitch,RIFLE.pitchMin,RIFLE.pitchMax);aimToward(rifle.yaw,rifle.pitch);},
  eye:()=>rifleAt(RIFLE.eye).toArray(),muzzle:()=>rifleAt(RIFLE.muzzle).toArray(),bodyRoot:y=>bodyRoot(y).toArray(),
  tune:RIFLE,mount3:rifleMount,model:()=>lookoutRifle};

@@ -10,7 +10,7 @@ pointer('pointerdown',100);pointer('pointermove',140);pointer('pointerup',140);c
 pointer('pointerdown',100);pointer('pointerup',100);check('Left click starts punch',combat.time===0);
 expedition.advance(.0833);const windPose=Xt.getPose().joints;expedition.advance(.1);const strikePose=Xt.getPose().joints;
 const hand=combat.side+'Hand',arm=combat.side+'Arm'; // clicks alternate right cross / left jab
-check('Striking fist drives forward more than 40 cm',strikePose[hand][2]-windPose[hand][2]>.40);
+check('Striking fist drives forward more than 30 cm (the motion-captured cross)',strikePose[hand][2]-windPose[hand][2]>.30);
 check('Shoulder drives forward with torso',strikePose[arm][2]-windPose[arm][2]>.04);
 check('Punches alternate between right and left hands',(()=>{expedition.advance(.6);combat.swings=0;startPunch();const a=combat.side;expedition.advance(.6);startPunch();const b=combat.side;expedition.advance(.6);return a==='Right'&&b==='Left';})());
 const p=Xt.root.position;Ze.position.set(p.x+2,p.y+1.9,p.z+2.5);Ze.fov=50;Ze.updateProjectionMatrix();Ze.lookAt(p.x,p.y+.9,p.z+.5);Fu=()=>{};

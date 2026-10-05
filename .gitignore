@@ -28,3 +28,7 @@ __pycache__/
 /outputs/expedition-source/spring-water-checks.html
 /outputs/expedition-source/landscape-checks.html
 /outputs/expedition-source/circuit-checks.html
+
+# Mixamo source animations: used by add-mixamo-clips.py, not redistributed (the baked clips are in ranger.glb)
+/Jump.fbx
+/Punching.fbx

@@ -26,33 +26,17 @@ function punchContact(){
  return poisonDwarf.damage(25,{x:dx/(range||1),z:dz/(range||1)},'punch');
 }
 // ---- punch animation -----------------------------------------------------------------------------------------------
-// A boxer's stance: left foot forward, knees bent. Click 1 throws the right cross, click 2 the left jab.
-// Timeline (s): 0-.075 coil, .075-.19 strike (hips, then shoulder, then fist), .19 impact (brief hit-pause), .26-.46 recover.
-// Hand targets are offsets from the shoulder (x inboard, y up, z forward), so they follow the lean, drop and twist.
-const punchGuard={Right:[.10,.02,.30],Left:[-.10,.02,.32]},punchCoil={Right:[.02,-.10,.10],Left:[-.02,-.10,.12]};
-const punchChest=new L();
+// The Mixamo punch (ranger.glb 'Punch', a right cross from guard and back; 'PunchLeft' is it mirrored into a left jab, both
+// baked by add-mixamo-clips.py). Click 1 throws the cross, click 2 the jab. The clip is retimed so its full extension
+// (clip 0.30 s) lands on the game's impact moment (.19 s) and its return to guard (0.63 s) ends the swing (.46 s); it blends
+// in and out over the first and last few hundredths. Thrown on the move, only the upper body punches and the legs keep walking.
+const PUNCH_CLIP={impact:.30,end:.63},PUNCH_IMPACT=.19,PUNCH_END=.46;
 function punchPose(t){
- const side=combat.side,other=side==='Right'?'Left':'Right',sign=side==='Right'?1:-1;
- // the strike accelerates into the target (u^1.6) rather than easing in and out like a slide
- const u=Mn((t-.075)/.115,0,1),coil=ease(0,.075,t),strike=Math.pow(u,1.6),recover=ease(.26,.46,t);
- const reach=strike*(1-recover),wind=coil*(1-strike)*(1-recover),guard=ease(0,.05,t)*(1-ease(.40,.46,t));
- // where the fist is going: Mosswick's chest if he is in front of us, otherwise straight ahead and slightly across
- if(combat.target){
-  const d=poisonDwarf.root.position;Xt.root.updateMatrixWorld(true);
-  Xt.root.worldToLocal(punchChest.set(d.x,d.y+.80,d.z));
- }else{const s=Xt.getPose().joints[side+'Arm'];punchChest.set(s[0]+sign*.14,s[1]-.08,s[2]+1);}
- punchChest.y+=.12*Math.sin(Math.PI*strike); // the fist travels in a slight arc, not a ruler line
- // fist path: guard -> coil -> impact -> guard
- const base=guardCoil(side,coil*(1-strike));
- const stance=combat.planted?ease(0,.12,t)*(1-ease(.34,.46,t)):0,lunge=combat.stepped;
- const twist=sign*(-.30*wind+(side==='Right'?.50:.30)*reach)*guard;
- Xt.poseMotion({label:side==='Right'?'Cross':'Jab',
-  fist:{Right:guard,Left:guard},twist,hipTwist:twist*.7,lean:(.22*reach-.06*wind)*guard,drop:combat.planted?(.07*stance+.03*reach):0,shoulders:{[side]:.24*reach*guard,[other]:-.12*reach*guard},
-  feet:combat.planted?{Left:{position:[.17,.10,.22-.9*lunge],weight:stance,free:true},Right:{position:[-.17,.10,-.16-.5*lunge],weight:stance,free:true}}:undefined,
-  hands:{[side]:{position:base,relative:true,weight:guard,strike:{point:punchChest.toArray(),reach:.56,amount:reach}},
-   [other]:{position:[punchGuard[other][0],punchGuard[other][1]+.03*reach,punchGuard[other][2]-.06*reach],relative:true,weight:guard*.95}}});
+ const clipTime=t<PUNCH_IMPACT?t*PUNCH_CLIP.impact/PUNCH_IMPACT:PUNCH_CLIP.impact+(t-PUNCH_IMPACT)*(PUNCH_CLIP.end-PUNCH_CLIP.impact)/(PUNCH_END-PUNCH_IMPACT);
+ const weight=ease(0,.05,t)*(1-ease(PUNCH_END-.06,PUNCH_END,t));
+ Xt.poseMotion({label:combat.side==='Right'?'Cross':'Jab'});
+ Xt.applyClip(combat.side==='Right'?'Punch':'PunchLeft',clipTime,weight,combat.planted?null:'upper');
 }
-const guardCoil=(side,k)=>punchGuard[side].map((v,i)=>v+(punchCoil[side][i]-v)*k);
 const combatStep=Fu;
 Fu=function(dt){
  combatStep(dt);

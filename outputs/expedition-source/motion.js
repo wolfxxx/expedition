@@ -4,37 +4,38 @@ const ease=(a,b,t)=>{const u=Mn((t-a)/(b-a),0,1);return u*u*(3-2*u);};
 const lerpPoint=(a,b,t)=>a.clone().lerp(b,t);
 const contact=(point,weight=1)=>({position:point.toArray(),world:true,weight});
 const localContact=(x,y,z)=>({position:[x,y,z]});
-let jumpPhase='grounded',jumpTime=0,jumpY=0,jumpMomentum=new L(),jumpAnchors=null,jumpArmSwing=0,jumpArmFlex=0,jumpArmWeight=0;
+let jumpPhase='grounded',jumpTime=0,jumpY=0,jumpMomentum=new L();
+// The jump is the Mixamo jump clip (ranger.glb 'Jump', baked by add-mixamo-clips.py), driven by the jump's own physics.
+// Wind-up: the clip runs from its first frame to push-off while the feet stay planted (IK on the spots they stood on,
+// released just before take-off) and the hips dip. Flight: the clip runs from push-off to touch-down in step with the
+// rise and fall, so a long fall holds the legs reaching for the ground. Landing: the clip's absorb, blending back out.
+// Clip times (s): push-off 0.07, touch-down 0.67, absorbed 0.80. JUMP_V0 is the take-off speed (m/s).
+const JUMP_WIND=.16,JUMP_LAND=.40,JUMP_V0=4.25,JUMP_CLIP={off:.07,down:.67,absorbed:.80};
+let jumpAnchors=null;
 function groundFeet(){
   const pose=Xt.getPose().joints;Xt.root.updateMatrixWorld(true);
   return Object.fromEntries(['Left','Right'].map(side=>{
     const p=Xt.root.localToWorld(new L(...pose[side+'Foot']));p.y=Je.walkHeight(p.x,p.z,Xt.root.position.y)+.10;return [side,p];
   }));
 }
-// Timings (s) and shape of a jump: crouch with the arms swung back, drive up through straight legs with the arms
-// thrown forward, tuck (one knee up, the other heel back, feet relaxed), reach for the ground, then absorb the landing.
-const JUMP_WIND=.16,JUMP_LAND=.32;
-function jumpPose(dt,drop){
+function jumpPose(dt){
   Xt.animate(dt,0,0);
   const u=jumpTime,wind=jumpPhase==='anticipation',land=jumpPhase==='landing';
-  const push=ease(0,.10,u)*(1-ease(.10,.22,u)),tuck=ease(.08,.30,u)*(1-ease(.46,.66,u)),reach=ease(.52,.72,u);
-  let swing,flex,lean,weight;
-  if(wind){const k=ease(0,JUMP_WIND,u);swing=-.45*k;flex=.25*k;lean=.30*k;weight=ease(0,JUMP_WIND*.8,u);}
-  else if(land){swing=.10+.20*(1-ease(0,.28,u));flex=.08+.40*(1-ease(.05,.3,u));lean=.32*Math.min(1,u/.10)*(1-ease(.14,JUMP_LAND,u));weight=1-ease(.1,JUMP_LAND,u);}
-  else{swing=-.45+1.40*ease(0,.18,u)-.40*ease(.18,.45,u)-.45*ease(.5,.95,u);flex=.25+.30*ease(0,.18,u)-.15*ease(.5,.9,u);lean=.03+.14*tuck+.10*reach;weight=1;}
-  const response=1-Math.exp(-dt*18);
-  jumpArmSwing+=(swing-jumpArmSwing)*response;
-  jumpArmFlex+=(flex-jumpArmFlex)*response;
-  jumpArmWeight=weight;
-  const air=!wind&&!land;
-  Xt.poseMotion({label:wind?'Jump preparation':land?'Landing':'Airborne',drop,lean,
-    feet:air?{Left:{position:[.13,.10-.05*push+.30*tuck-.02*reach,.10*tuck+.08*reach],relax:true},Right:{position:[-.13,.10-.05*push+.36*tuck,-.16*tuck-.05*reach],relax:true}}:
-      {Left:contact(jumpAnchors.Left),Right:contact(jumpAnchors.Right)},
-    jumpArms:{swing:jumpArmSwing,flex:jumpArmFlex,weight:jumpArmWeight}});
+  if(wind){
+    const k=ease(0,JUMP_WIND,u),plant=1-ease(JUMP_WIND*.72,JUMP_WIND,u);
+    Xt.applyClip('Jump',JUMP_CLIP.off*k,k);
+    Xt.poseMotion({label:'Jump preparation',drop:.15*Math.sin(Math.PI*k),feet:jumpAnchors&&{Left:contact(jumpAnchors.Left,plant),Right:contact(jumpAnchors.Right,plant)}});
+    return;
+  }
+  let time,weight;
+  if(land){time=JUMP_CLIP.down+(JUMP_CLIP.absorbed-JUMP_CLIP.down)*ease(0,.3,u);weight=1-ease(.04,JUMP_LAND,u);}
+  else{const s=Mn((JUMP_V0-jumpVelocity)/(2*JUMP_V0),0,.97);time=JUMP_CLIP.off+(JUMP_CLIP.down-JUMP_CLIP.off)*s;weight=1;}
+  Xt.poseMotion({label:land?'Landing':'Airborne'});
+  Xt.applyClip('Jump',time,weight);
 }
 addEventListener('keydown',e=>{
   if(e.code==='Space'&&!e.repeat&&Te==='walking'&&!Le&&!rifleBusy&&jumpPhase==='grounded'){
-    jumpPhase='anticipation';jumpTime=0;jumpArmSwing=jumpArmFlex=jumpArmWeight=0;jumpMomentum.copy(Ni);jumpAnchors=groundFeet();
+    jumpPhase='anticipation';jumpTime=0;jumpMomentum.copy(Ni);jumpAnchors=groundFeet();
   }
 });
 const walkOnGround=t_;
@@ -42,7 +43,7 @@ t_=function(dt){
   if(jumpPhase==='grounded'){const oldY=Xt.root.position.y;walkOnGround(dt);if(oldY-Xt.root.position.y>.30){Xt.root.position.y=oldY;jumpY=oldY;jumpPhase='airborne';jumpTime=.35;jumpVelocity=0;jumpMomentum.copy(Ni);}return;}
   jumpTime+=dt;
   if(jumpPhase==='anticipation'){
-    jumpPose(dt,.26*ease(0,JUMP_WIND,jumpTime));
+    jumpPose(dt);
     if(jumpTime>=JUMP_WIND){jumpPhase='airborne';jumpTime=0;jumpVelocity=4.25;jumpY=Xt.root.position.y;}
     return;
   }
@@ -57,14 +58,14 @@ t_=function(dt){
     if(jumpY+1.77>ceiling){jumpY=ceiling-1.77;jumpVelocity=Math.min(0,jumpVelocity);}
     const floor=Je.walkHeight(Xt.root.position.x,Xt.root.position.z,oldJumpY,0);
     Xt.root.position.y=jumpY;jumpHeight=Math.max(0,jumpY-floor);
-    jumpPose(dt,.26*(1-ease(0,.08,jumpTime)));
+    jumpPose(dt);
     if(jumpY<=floor&&jumpVelocity<0){
       Xt.root.position.y=floor;jumpHeight=jumpVelocity=0;jumpPhase='landing';jumpTime=0;
-      Xt.animate(0,0,0);jumpAnchors=groundFeet();jumpPose(0,.26*0);Ni.copy(jumpMomentum).multiplyScalar(.4);
+      Xt.animate(0,0,0);jumpPose(0);Ni.copy(jumpMomentum).multiplyScalar(.4);
     }
     return;
   }
-  jumpPose(dt,.28*(jumpTime<.14?ease(0,.14,jumpTime):1-ease(.14,JUMP_LAND,jumpTime)));
+  jumpPose(dt);
   if(jumpTime>=JUMP_LAND){jumpPhase='grounded';jumpTime=0;Xt.animate(0,0,0);}
 };
 const doorAvailable=dc;dc=()=>jumpPhase==='grounded'&&doorAvailable();

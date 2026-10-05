@@ -13,7 +13,7 @@ export function create(encoded) {
     setElevationOffset(value){elevation.position.y=value;},
     getElevationOffset(){return elevation.position.y;},
     footHeights(){if(!loaded)return null;root.updateMatrixWorld(true);return {Left:localPosition(bones.LeftFoot).y-elevation.position.y,Right:localPosition(bones.RightFoot).y-elevation.position.y,contactHeight:.115+.060*(actions.Run?.getEffectiveWeight()||0)};},
-    animate, poseMotion, setFirstPerson(value){hidden=value;visual.visible=!value;},
+    animate, poseMotion, applyClip, clipDuration:name=>sampled[name]?.duration||0, setFirstPerson(value){hidden=value;visual.visible=!value;},
     getPose(){
       const joints={};if(loaded){root.updateMatrixWorld(true);for(const n of ['Hips','Head','LeftHand','RightHand','LeftArm','RightArm','LeftForeArm','RightForeArm','LeftUpLeg','RightUpLeg','LeftLeg','RightLeg','LeftFoot','RightFoot'])joints[n]=root.worldToLocal(bones[n].getWorldPosition(new THREE.Vector3())).toArray();}
       return {stride:elapsed,seated,model:'Rocketbox outdoor ranger',loaded,animation:motionLabel||(seated>.5?'Driving':current),bones:Object.keys(bones).length,joints};
@@ -37,6 +37,7 @@ export function create(encoded) {
     mixer=new THREE.AnimationMixer(model);
     for(const clip of gltf.animations){
       if(clip.name==='TPose')continue;
+      if(ONE_SHOT.has(clip.name)){prepareSampled(clip);continue;}
       // Retain vertical hip bounce but remove horizontal locomotion/root drift.
       actions[clip.name]=mixer.clipAction(clip).setEffectiveWeight(clip.name==='Idle'?1:0).play();
     }
@@ -50,6 +51,32 @@ export function create(encoded) {
     animate(0,0,0);return api;
   });
 
+  // One-shot clips (jump, punches) are not looped by the mixer. The game samples them at a time of its choosing (so a jump's
+  // flight can follow the physics and a punch lands on its impact frame) and blends them over the animated pose.
+  // mask 'upper' keeps the legs on the walk/run animation (a punch thrown on the move).
+  const ONE_SHOT=new Set(['Jump','Punch','PunchLeft']),sampled={};
+  const UPPER=/Spine|Neck|Head|Clavicle|UpperArm|Forearm|Hand|Finger/;
+  function prepareSampled(clip){
+    const tracks=[];
+    for(const track of clip.tracks){
+      const {nodeName,propertyName}=THREE.PropertyBinding.parseTrackName(track.name),node=model.getObjectByName(nodeName);
+      if(!node||!['quaternion','position'].includes(propertyName))continue;
+      tracks.push({node,property:propertyName,interpolant:track.createInterpolant(),upper:UPPER.test(nodeName)&&!/Pelvis/.test(nodeName)});
+    }
+    sampled[clip.name]={duration:clip.duration,tracks};
+  }
+  const sampledQ=new THREE.Quaternion(),sampledP=new THREE.Vector3();
+  function applyClip(name,time,weight=1,mask=null){
+    const clip=sampled[name];if(!loaded||!clip||weight<=0)return;
+    const t=THREE.MathUtils.clamp(time,0,clip.duration);
+    for(const track of clip.tracks){
+      if(mask==='upper'&&!track.upper)continue;
+      const value=track.interpolant.evaluate(t);
+      if(track.property==='quaternion'){sampledQ.fromArray(value);track.node.quaternion.slerp(sampledQ,weight);}
+      else{sampledP.fromArray(value);track.node.position.lerp(sampledP,weight);}
+    }
+    model.updateMatrixWorld(true);
+  }
   // Aim a bone at a target in controller-local coordinates. This works with the
   // imported bone axes rather than assuming Euler axes match procedural limbs.
   const worldTarget=new THREE.Vector3(),origin=new THREE.Vector3(),tip=new THREE.Vector3();

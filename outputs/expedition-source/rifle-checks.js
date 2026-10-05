@@ -112,6 +112,29 @@ if(spot){
  check('A body shot still takes 50 health, not his head',rifleNow().last.kind==='dwarf'&&!rifleNow().last.head&&poisonDwarf.state().health===50&&!poisonDwarf.state().beheaded);
  poisonDwarf.damage(100,null,'rifle');expedition.advance(1.7); // leave him knocked out, as the checks below expect
 }
+// ---- ducks on Mirror Spring ----
+{
+ lie();const S=expedition.spring,dirOf=s=>new L(Math.sin(s.yaw)*Math.cos(s.pitch),Math.sin(s.pitch),Math.cos(s.yaw)*Math.cos(s.pitch));
+ const aimAtDuck=d=>{for(let i=0;i<3;i++){const e=R.eye(),p=d.mesh.position,yaw=Math.atan2(p.x-e[0],p.z-e[2]),pitch=Math.atan2(p.y+.08-e[1],Math.hypot(p.x-e[0],p.z-e[2]));R.aim(yaw,pitch);expedition.advance(1/60);}};
+ const duck=S.ducks.find(d=>{aimAtDuck(d);return R.cast(new L(...R.eye()),dirOf(rifleNow())).kind==='duck';});
+ check('A duck on the spring can be lined up from the lookout',!!duck);
+ if(duck){
+  aimAtDuck(duck);const n=rifleNow().ducks,fired=R.fire();
+  check('Shooting a duck brings it down',fired&&rifleNow().last.kind==='duck'&&!!duck.dead&&rifleNow().ducks===n+1&&expedition.getState().spring.ducksShot>=1&&/Duck down/.test(document.body.innerText));
+  check('A shot duck is no longer a target',(expedition.advance(1.7),aimAtDuck(duck),R.cast(new L(...R.eye()),dirOf(rifleNow())).kind!=='duck'));
+  for(let i=0;i<4*60;i++)Fu(1/60);
+  check('It floats belly up on the water',Math.abs(duck.mesh.rotation.z-Math.PI)<.3&&Math.abs(duck.mesh.position.y-(waterLevel+.09))<.05);
+  for(let i=0;i<27*60;i++)Fu(1/60);
+  check('After 30 s a duck swims on the spring again',!duck.dead&&Math.abs(duck.mesh.rotation.z)<.1);
+  aimAtDuck(S.ducks.find(d=>!d.dead));R.fire();Oa();check('Reset brings shot ducks back',S.ducks.every(d=>!d.dead));
+ }
+}
+// ---- smooth aim: a sudden mouse jump is eased in over a few steps instead of landing in one ----
+{
+ lie();const start=rifle.yaw;rifle.want.yaw=start+.3;const steps=[];
+ for(let i=0;i<10;i++){const b=rifle.yaw;Fu(1/60);steps.push(rifle.yaw-b);}
+ check('The aim eases toward the mouse: no single step jumps, and it arrives within a few frames',steps[0]<.15&&steps.every((d,i)=>i===0||d<=steps[i-1]+1e-9)&&Math.abs(rifle.yaw-start-.3)<.01);
+}
 {const eye=new L(...R.eye());
  const tree=world.colliders.find(c=>c.r>=.25&&c.r<=.3&&c.height>3&&Math.hypot(c.x-tx,c.z-tz)>12&&Math.hypot(c.x-tx,c.z-tz)<60);
  const d=new L(tree.x-eye.x,tree.y+1.5-eye.y,tree.z-eye.z),len=d.length();d.normalize();
