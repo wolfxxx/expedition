@@ -18,4 +18,6 @@ check('Entire lookout and stair approach clear the road shoulder',roadClearance>
 const landmark=places.find(p=>p.name==='Ranger lookout');check('Discovery marker follows relocated lookout',landmark.x===tx&&landmark.z===tz);
 check('Rifle loaded and resting on its bipod at the deck centre',!!lookoutRifle&&Math.abs(rifleMount.position.x-tx)<.001&&Math.abs(rifleMount.position.z-tz)<.001&&Math.abs(rifleMount.position.y-(lookoutTop+.015+RIFLE.butt))<.001);
 check('Rifle butt is inside the rails and its muzzle points out over the valley',Math.hypot(rifleMount.position.x-tx,rifleMount.position.z-tz)<.5&&Math.abs(Math.atan2(expedition.rifle.muzzle()[0]-tx,expedition.rifle.muzzle()[2]-tz)-RIFLE.restYaw)<.05);
+{const M=expedition.lookoutMeadow,trees=Je.colliders.filter(c=>!c.solid&&c.r>=.25&&c.r<.45&&c.height>2.5&&Math.hypot(c.x-tx,c.z-tz)<M.r);
+check('The lookout stands in the open: trees and bushes within 16 m were cleared, its posts are still there',M.cleared.colliders>=10&&M.cleared.instances>=20&&trees.length===0&&Je.colliders.filter(c=>Math.abs(c.r-.16)<.001&&Math.hypot(c.x-tx,c.z-tz)<3).length>=4);}
 const pre=document.createElement('pre');pre.id='lookout-results';pre.hidden=true;pre.textContent=JSON.stringify({results,rifle:lookoutRifle.userData,roadClearance,top,maxRise,maxBodyStep,maxCameraTurn,stairRise});document.body.append(pre);

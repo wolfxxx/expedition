@@ -6,20 +6,26 @@ const CIRCUIT=circuitLayout();
 const circuitJumps={count:0,best:null,last:null,current:null};
 
 // ---- clear the ground: trees, stones, bushes and their collision circles go; grass stays off the track (landscape.js) --------
-const circuitCleared={colliders:0,instances:0};
+// Two clearings: the circuit, and an open meadow round the ranger lookout so the tower stands in the open. The tower itself
+// (its posts and stairs, inside lookoutClearing) is left alone. groundCleared is a declaration, so the checks can use it too.
+const LOOKOUT_MEADOW={x:18,z:35,r:16};
+function lookoutMeadow(x,z){return Math.hypot(x-LOOKOUT_MEADOW.x,z-LOOKOUT_MEADOW.z)<LOOKOUT_MEADOW.r&&!lookoutClearing(x,z);}
+function groundCleared(x,z){return circuitClearing(x,z)||lookoutMeadow(x,z);}
+const circuitCleared={colliders:0,instances:0},meadowCleared={colliders:0,instances:0};
 {
  const matrix=new ue(),at=new L(),gone=new ue().makeScale(0,0,0),keep=new Set([grass,flowerStems,flowerHeads]);
+ const tally=(x,z)=>circuitClearing(x,z)?circuitCleared:lookoutMeadow(x,z)?meadowCleared:null;
  world.root.updateMatrixWorld(true);
  world.root.traverse(o=>{
   if(!o.isInstancedMesh||keep.has(o))return;
   let changed=false;
   for(let i=0;i<o.count;i++){
    o.getMatrixAt(i,matrix);at.setFromMatrixPosition(matrix).applyMatrix4(o.matrixWorld);
-   if(circuitClearing(at.x,at.z)){o.setMatrixAt(i,gone);changed=true;circuitCleared.instances++;}
+   const t=tally(at.x,at.z);if(t){o.setMatrixAt(i,gone);changed=true;t.instances++;}
   }
   if(changed)o.instanceMatrix.needsUpdate=true;
  });
- for(let i=world.colliders.length-1;i>=0;i--)if(circuitClearing(world.colliders[i].x,world.colliders[i].z)){world.colliders.splice(i,1);circuitCleared.colliders++;}
+ for(let i=world.colliders.length-1;i>=0;i--){const t=tally(world.colliders[i].x,world.colliders[i].z);if(t){world.colliders.splice(i,1);t.colliders++;}}
 }
 
 // ---- the ramps are part of the ground: the Jeep, walking and everything else that asks for the height ride over them --------
@@ -164,4 +170,5 @@ Fu=function(dt){
  }
 };
 const circuitReset=Oa;Oa=function(){circuitReset();circuitJumps.current=null;};window.expedition.reset=Oa;
+window.expedition.lookoutMeadow={...LOOKOUT_MEADOW,cleared:meadowCleared,inside:lookoutMeadow};
 window.expedition.circuit={layout:CIRCUIT,jumps:circuitJumps,cleared:circuitCleared,ground:circuitGround,rampHeight:circuitRampHeight,bales:circuitBales,track:circuitTrack,clearing:circuitClearing,path:circuitPath};

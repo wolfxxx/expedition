@@ -2,7 +2,7 @@ const results=[];const check=(name,pass,detail)=>results.push({name,pass:!!pass,
 try{
 const E=expedition,L2=E.landscape,T=L2.trees;
 L2.settings.adaptive=false; // (the software renderer used for testing is slow; the quality valve is tested directly below)
-const kept=t=>!circuitClearing(t.x,t.z); // trees on the ramp circuit's ground were cleared away on purpose (circuit.js)
+const kept=t=>!groundCleared(t.x,t.z); // trees on the ramp circuit and round the lookout were cleared away on purpose (circuit.js)
 const at=(x,z,yaw=0)=>{Oa();Te='walking';Xt.root.position.set(x,world.height(x,z),z);Wn=yaw;Xt.root.rotation.y=yaw;Ue.clear();fc(1,true);E.advance(.3);};
 
 // ---- the trees ----
@@ -14,7 +14,7 @@ check('The old trunks, crowns, needles, spiky tufts and floating flowers are hid
  const hidden=world.root.children.filter(o=>o.isInstancedMesh&&!o.visible);const hexes=hidden.map(o=>o.material.color.getHexString());
  return ['655438','73815a','294c42','365c49','527452','d3b3ba','e8d295','85834d'].every(h=>hexes.includes(h))&&hexes.filter(h=>h==='594c38').length===1;
 })());
-check('Every one of the original 243 trees is still standing where it was (collision circles unchanged), apart from the ramp circuit clearing',(()=>{
+check('Every one of the original 243 trees is still standing where it was (collision circles unchanged), apart from the circuit and lookout clearings',(()=>{
  return T.pines.slice(0,180).concat(T.broad.slice(0,63)).filter(kept).every(t=>world.colliders.some(q=>Math.hypot(q.x-t.x,q.z-t.z)<.01));
 })());
 {const all=[...T.pines,...T.broad,...T.birch,...T.far.pines,...T.far.broad].filter(kept);let worst=0;for(const t of all)worst=Math.max(worst,Math.abs(t.y-world.height(t.x,t.z)));
