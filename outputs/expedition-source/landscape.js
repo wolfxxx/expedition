@@ -103,7 +103,7 @@ const grassData=Array.from({length:grassCount},()=>({x:0,z:0,yaw:0,h:1,w:1,hue:0
 const grassPalette=['#5f8a34','#6f9a3a','#7aa63f','#86ab45','#5a7f32','#93ab4c','#a9a352'].map(c=>new Wt(c));
 const grassTint=new Wt(),grassMatrix=new ue(),grassDummy=new Me();
 function grassAllowed(x,z){
- if(lakeDistance(x,z)<11.2||lookoutClearing(x,z))return false;
+ if(lakeDistance(x,z)<11.2||lookoutClearing(x,z)||circuitTrack(x,z))return false; // circuitTrack: the ramp circuit's dirt
  if(world.roadDistance(x,z)<2.3||Math.hypot(x,z)<10||Math.hypot(x,z)>96)return false;
  if(spInBoardwalk(x,z)||Math.abs(x-18)<6&&z>22&&z<44)return false;
  return true;

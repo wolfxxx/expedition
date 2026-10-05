@@ -1,8 +1,8 @@
 // Low stones are drivable. A stone no taller than a wheel (0.95 m) does not stop the Jeep if it has the speed: the
 // wheels ride up over it, the body tilts with them, and fast enough the Jeep leaves the ground and lands with a thud.
 // Taller stones, trees and everything else are still solid. Too slow, and the Jeep stops against the stone as before.
-const ROCK={clearance:.32,maxHeight:.95,baseSpeed:2.5,perMetre:3.5,launchSpeed:10,launchGain:1.6,launchPerSpeed:.12,maxLaunch:4.5,gravity:13,profile:.85};
-const rockState={hits:0,launches:0,landings:0,flying:false,hy:0,vy:0,prevG:null,contact:null,hint:0,peak:0,rise:0,latch:false,clearTime:0,last:null};
+const ROCK={clearance:.32,maxHeight:.95,baseSpeed:2.5,perMetre:3.5,launchSpeed:10,launchGain:1.6,launchPerSpeed:.12,maxLaunch:4.5,gravity:13,profile:.85,rampLaunchSpeed:6,rampGain:1.08};
+const rockState={hits:0,launches:0,landings:0,flying:false,hy:0,vy:0,prevG:null,contact:null,hint:0,peak:0,rise:0,latch:false,clearTime:0,last:null,ramp:false};
 
 // ---- the stones --------------------------------------------------------------------------------------------------------
 let stones=null,solid=null;
@@ -52,8 +52,9 @@ e_=function(x,z,yaw){
 // ---- ride: wheels follow the stones, the body can leave the ground ---------------------------------------------------------
 n_=function(dt){
  const c=Math.cos(Xe),s=Math.sin(Xe),x0=zt.root.position.x,z0=zt.root.position.z;
- let bumpy=false;
- const sample=(l,k)=>{const x=x0+l*c+k*s,z=z0-l*s+k*c,b=rockBump(x,z);if(b>.02)bumpy=true;return Je.height(x,z)+b;};
+ let bumpy=false,onRamp=false;
+ // Je.height already includes the circuit's ramps (circuit.js); they count as bumps, but launch by their own rule below
+ const sample=(l,k)=>{const x=x0+l*c+k*s,z=z0-l*s+k*c,b=rockBump(x,z);if(b>.02)bumpy=true;if(circuitRampHeight(x,z)>.02)bumpy=onRamp=true;return Je.height(x,z)+b;};
  // the underside of the body: a stone narrower than the wheel track still lifts the chassis that passes over it
  const belly=k=>Math.max(sample(-.5,k),sample(0,k),sample(.5,k))-ROCK.clearance;
  const fl=sample(.88,1.29),fr=sample(-.88,1.29),rl=sample(.88,-1.25),rr=sample(-.88,-1.25);
@@ -70,21 +71,26 @@ n_=function(dt){
   le*=1-Math.min(.22,.05+.012*speed);
  }else if(!touching&&front<.02)rockState.contact=null;
  // smoothed upward speed of the ground under the car
- rockState.rise=rockState.rise*.6+rise*.4;
+ const riseBefore=rockState.rise;rockState.rise=rockState.rise*.6+rise*.4;
  if(!bumpy){rockState.clearTime+=dt;if(rockState.clearTime>.3)rockState.latch=false;}else rockState.clearTime=0;
  if(!rockState.flying){
   rockState.hy=ground;
   // launch at the crest: the ground was rising fast and has just stopped rising, and the Jeep is quick enough to keep going
-  if(bumpy&&!rockState.latch&&speed>=ROCK.launchSpeed&&rockState.rise>1.1&&rise<rockState.rise*.35){
-   rockState.flying=true;rockState.latch=true;rockState.vy=Math.min(ROCK.maxLaunch,rockState.rise*ROCK.launchGain+speed*ROCK.launchPerSpeed);rockState.launches++;rockState.peak=0;
+  // a ramp throws the Jeep the way it was going: off the lip the ground falls away faster than gravity can follow it,
+  // so the Jeep keeps the upward speed it had on the ramp (plus a little pop) and flies
+  if(onRamp&&!rockState.latch&&speed>=ROCK.rampLaunchSpeed&&riseBefore>1&&rise<riseBefore-ROCK.gravity*dt*2){
+   rockState.flying=rockState.ramp=rockState.latch=true;rockState.vy=riseBefore*ROCK.rampGain;rockState.launches++;rockState.peak=0;
+  }else if(bumpy&&!onRamp&&!rockState.latch&&speed>=ROCK.launchSpeed&&rockState.rise>1.1&&rise<rockState.rise*.35){
+   rockState.flying=true;rockState.ramp=false;rockState.latch=true;rockState.vy=Math.min(ROCK.maxLaunch,rockState.rise*ROCK.launchGain+speed*ROCK.launchPerSpeed);rockState.launches++;rockState.peak=0;
   }
  }else{
   rockState.vy-=ROCK.gravity*dt;rockState.hy+=rockState.vy*dt;rockState.peak=Math.max(rockState.peak,rockState.hy-ground);
   if(rockState.hy<=ground&&rockState.vy<0){
-   const impact=-rockState.vy;rockState.flying=false;rockState.hy=ground;rockState.landings++;
+   // off a ramp, landing on a down slope is soft: what counts is how fast the Jeep meets the ground, not how fast it falls
+   const impact=rockState.ramp?Math.max(0,rise-rockState.vy):-rockState.vy;rockState.flying=false;rockState.hy=ground;rockState.landings++;
    rockState.last={launchHeight:+rockState.peak.toFixed(2),impact:+impact.toFixed(2)};
    if(impact>1.2){
-    valleyAudio.rockHit(Math.min(1.2,.35+impact/6));roadkill.shake=Math.max(roadkill.shake,.15+.05*impact);le*=.94;
+    valleyAudio.rockHit(Math.min(1.2,.35+impact/6));roadkill.shake=Math.max(roadkill.shake,Math.min(.6,.15+.05*impact));le*=impact>6?.85:.94;
     for(const side of [-.9,.9])puff(new L(x0+c*side+s*1.2,ground,z0-s*side+c*1.2),'#cdbd90',.7,.8,.4,.55);
    }
   }else if(rockState.hy<ground)rockState.hy=ground; // the ground came up under it: ride on
@@ -94,11 +100,17 @@ n_=function(dt){
  if(rockState.flying||bumpy)zt.root.position.y=rockState.hy;
  else zt.root.position.y=La(zt.root.position.y,ground,16,dt);
  zt.root.rotation.y=Xe;
+ if(rockState.flying&&rockState.ramp){
+  // in the air off a ramp the nose follows the flight path, slowly, and the body levels out
+  zt.root.rotation.x=La(zt.root.rotation.x,-Math.atan2(rockState.vy,Math.max(speed,4))*.8,3.5,dt);
+  zt.root.rotation.z=La(zt.root.rotation.z,0,3,dt);
+  return;
+ }
  const pitchAir=rockState.flying?-Mn(rockState.vy*.03,-.25,.25):0,quick=bumpy||rockState.flying?16:9;
  zt.root.rotation.x=La(zt.root.rotation.x,-Math.atan2(frontAvg-rearAvg,2.54)+pitchAir,quick,dt);
  zt.root.rotation.z=La(zt.root.rotation.z,Math.atan2((fl+rl-fr-rr)*.5,1.76)-ci*le*.003,quick,dt);
 };
-const rocksReset=Oa;Oa=function(){rocksReset();Object.assign(rockState,{flying:false,vy:0,contact:null,hint:0,prevG:null,rise:0,latch:false,clearTime:0});};window.expedition.reset=Oa;
+const rocksReset=Oa;Oa=function(){rocksReset();Object.assign(rockState,{flying:false,ramp:false,vy:0,contact:null,hint:0,prevG:null,rise:0,latch:false,clearTime:0});};window.expedition.reset=Oa;
 const rocksState=window.expedition.getState;
 window.expedition.getState=()=>({...rocksState(),rocks:{hits:rockState.hits,launches:rockState.launches,landings:rockState.landings,flying:rockState.flying,last:rockState.last}});
 window.expedition.stones=()=>stoneList().map(c=>({x:c.x,z:c.z,r:c.r,height:c.height}));

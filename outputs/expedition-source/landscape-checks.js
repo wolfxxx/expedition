@@ -2,6 +2,7 @@ const results=[];const check=(name,pass,detail)=>results.push({name,pass:!!pass,
 try{
 const E=expedition,L2=E.landscape,T=L2.trees;
 L2.settings.adaptive=false; // (the software renderer used for testing is slow; the quality valve is tested directly below)
+const kept=t=>!circuitClearing(t.x,t.z); // trees on the ramp circuit's ground were cleared away on purpose (circuit.js)
 const at=(x,z,yaw=0)=>{Oa();Te='walking';Xt.root.position.set(x,world.height(x,z),z);Wn=yaw;Xt.root.rotation.y=yaw;Ue.clear();fc(1,true);E.advance(.3);};
 
 // ---- the trees ----
@@ -13,14 +14,14 @@ check('The old trunks, crowns, needles, spiky tufts and floating flowers are hid
  const hidden=world.root.children.filter(o=>o.isInstancedMesh&&!o.visible);const hexes=hidden.map(o=>o.material.color.getHexString());
  return ['655438','73815a','294c42','365c49','527452','d3b3ba','e8d295','85834d'].every(h=>hexes.includes(h))&&hexes.filter(h=>h==='594c38').length===1;
 })());
-check('Every one of the original 243 trees is still standing where it was (collision circles unchanged)',(()=>{
- return T.pines.slice(0,180).concat(T.broad.slice(0,63)).every(t=>world.colliders.some(q=>Math.hypot(q.x-t.x,q.z-t.z)<.01));
+check('Every one of the original 243 trees is still standing where it was (collision circles unchanged), apart from the ramp circuit clearing',(()=>{
+ return T.pines.slice(0,180).concat(T.broad.slice(0,63)).filter(kept).every(t=>world.colliders.some(q=>Math.hypot(q.x-t.x,q.z-t.z)<.01));
 })());
-{const all=[...T.pines,...T.broad,...T.birch,...T.far.pines,...T.far.broad];let worst=0;for(const t of all)worst=Math.max(worst,Math.abs(t.y-world.height(t.x,t.z)));
+{const all=[...T.pines,...T.broad,...T.birch,...T.far.pines,...T.far.broad].filter(kept);let worst=0;for(const t of all)worst=Math.max(worst,Math.abs(t.y-world.height(t.x,t.z)));
  check('All '+all.length+' trees stand on the ground',worst<.4,'worst '+worst.toFixed(2)+' m');}
 {const walk=[...T.pines.slice(180),...T.broad.slice(63),...T.birch];
  check('New trees keep clear of roads, the lake, the camp, the lookout and the boat',walk.every(t=>world.roadDistance(t.x,t.z)>=6&&lakeDistance(t.x,t.z)>=13&&Math.hypot(t.x,t.z)>=14&&!lookoutClearing(t.x,t.z)&&Math.hypot(t.x-spBoatSpot.x,t.z-spBoatSpot.z)>=4),walk.length+' checked');
- check('...and each has a collision circle, so you cannot walk through it',walk.every(t=>world.colliders.some(q=>Math.hypot(q.x-t.x,q.z-t.z)<.01&&q.height>=t.H-.01)));
+ check('...and each has a collision circle, so you cannot walk through it',walk.filter(kept).every(t=>world.colliders.some(q=>Math.hypot(q.x-t.x,q.z-t.z)<.01&&q.height>=t.H-.01)));
  let nearest=99;for(let i=0;i<walk.length;i++)for(let j=0;j<i;j++)nearest=Math.min(nearest,Math.hypot(walk[i].x-walk[j].x,walk[i].z-walk[j].z));
  check('New trees do not crowd each other (nearest pair 2.9 m or more)',nearest>=2.9,nearest.toFixed(1)+' m');}
 check('The far forest is out of reach: nothing beyond the map edge has a collision circle',T.far.pines.concat(T.far.broad).every(t=>Math.hypot(t.x,t.z)>=89&&!world.colliders.some(q=>Math.hypot(q.x-t.x,q.z-t.z)<.01)));

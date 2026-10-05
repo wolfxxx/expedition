@@ -3,8 +3,11 @@ const drivetrain={gear:1,rpm:850,shift:0,shifts:0,acceleration:0};
 const gearCeilings=[7.5,12.5,18,23,29];
 i_=function(dt){
  const input=Nu(),brake=Ue.has('Space')||pe.brake,before=le;
+ // airborne off a circuit ramp (rocks.js): the wheels have no grip, so throttle and brakes do nothing and steering barely turns it
+ const air=rockState.flying&&rockState.ramp;
  drivetrain.shift=Math.max(0,drivetrain.shift-dt);
- if(brake)le=Math.sign(le)*Math.max(0,Math.abs(le)-19*dt);
+ if(air)le=Math.sign(le)*Math.max(0,Math.abs(le)-.3*dt);
+ else if(brake)le=Math.sign(le)*Math.max(0,Math.abs(le)-19*dt);
  else if(input.y>0)le=Math.min(27,le+(le<-.1?17:(9.5-4*Math.min(le/27,1))*(drivetrain.shift>0?.25:1))*input.y*dt);
  else if(input.y<0)le=Math.max(-7,le+(le>.1?17:5.2)*input.y*dt);
  else le=Math.sign(le)*Math.max(0,Math.abs(le)-(1.2+Math.abs(le)*.055)*dt);
@@ -17,14 +20,14 @@ i_=function(dt){
  if(speed<.1)drivetrain.gear=1;
  const ceiling=le<0?8:gearCeilings[drivetrain.gear-1];
  const load=!brake&&((input.y>0&&le>=0)||(input.y<0&&le<=0))?Math.abs(input.y):0;
- const targetRpm=850+Math.min(1.05,speed/ceiling)*4250+load*260;
+ const targetRpm=850+Math.min(1.05,speed/ceiling)*4250+load*(air?1500:260); // in the air the engine revs freely
  drivetrain.rpm=La(drivetrain.rpm,targetRpm,drivetrain.shift>0?20:10,dt);
  drivetrain.acceleration=(le-before)/dt;
  ci=La(ci,-input.x*.57/(1+speed*.065),10,dt);
  // Sweep in short increments so higher speed cannot skip thin obstacles.
  const pieces=Math.max(1,Math.ceil(speed*dt/.12)),step=dt/pieces;
  for(let j=0;j<pieces;j++){
-  const yaw=Xe+le/2.54*Math.tan(ci)*step;
+  const yaw=Xe+le/2.54*Math.tan(ci)*step*(air?.15:1);
   const dx=Math.sin(yaw)*le*step,dz=Math.cos(yaw)*le*step;
   if(e_(zt.root.position.x+dx,zt.root.position.z+dz,yaw)){le=0;break;}
   Xe=yaw;zt.root.position.x+=dx;zt.root.position.z+=dz;cc+=le*step/.486;
