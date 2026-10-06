@@ -6,6 +6,16 @@ const step=n=>{for(let i=0;i<n;i++)Fu(1/60);pc();};
 check('Phone mode is on (flagged for this page) and marks the page',M.enabled&&document.documentElement.classList.contains('mobile'));
 check('Lighter rendering: no antialiasing, 1024 shadows, lighter grass and water mirror',!Ae.getContext().getContextAttributes().antialias&&Sn.shadow.mapSize.x===1024&&LAND.quality<=.35&&SPRING.reflectScale<=.25);
 check('Clutter is hidden: title, field notes, keyboard help, Run button and the old action button',['.title','.journal','.controls'].every(q=>getComputedStyle(document.querySelector(q)).display==='none')&&!shown('boost')&&!shown('action'));
+// ---- no pointer capture on a phone (it swallows touches and freezes the controls) ----
+{let asked=0;const c=Ae.domElement,real=c.requestPointerLock;c.requestPointerLock=()=>{asked++;};
+ Oa();step(5);tap('mJump');step(100);tap('mPunch');step(40);
+ dispatchEvent(new KeyboardEvent('keydown',{code:'KeyW',bubbles:true}));dispatchEvent(new KeyboardEvent('keyup',{code:'KeyW',bubbles:true}));
+ for(const t of ['pointerdown','pointerup'])c.dispatchEvent(new PointerEvent(t,{bubbles:true,pointerType:'touch',pointerId:3,button:0,clientX:600,clientY:300}));
+ Xt.root.position.set(tx+.3,lookoutTop,tz-1.5);step(20);tap('mAction');step(110);
+ for(const t of ['pointerdown','pointerup'])c.dispatchEvent(new PointerEvent(t,{bubbles:true,pointerType:'touch',pointerId:4,button:0,clientX:600,clientY:300}));
+ c.requestPointerLock=real;
+ check('Nothing ever asks to capture the pointer: jump, punch, keys, screen taps or the rifle',asked===0,asked+' capture request(s)');
+ Oa();step(5);}
 // ---- on foot ----
 Oa();step(10);
 check('On foot: joystick, Jump and Punch show; Brake does not',shown('joystick')&&shown('mJump')&&shown('mPunch')&&!shown('brake'));

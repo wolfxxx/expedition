@@ -7,6 +7,12 @@ const MOBILE_TUNE={runAt:.88,follow:1.5,followDelay:1.2,carReturn:1.4,pixelLevel
 const mobileState={pixel:0,ema:16,slowFor:0,fastFor:0,lookedAt:-9,portrait:false,fullscreenTried:false};
 if(MOBILE){
  document.documentElement.classList.add('mobile');
+ // never capture the pointer on a touch screen: the mouse-look capture (mouselook.js) would swallow every touch, freeze the
+ // controls and make the browser show "to show your cursor, switch apps or refresh". Jump sends a Space key press and
+ // mouse-look captures on the first key press, so it has to be switched off here, not just avoided.
+ lookCapture=function(){};
+ const releasePointer=()=>{if(document.pointerLockElement)try{document.exitPointerLock();}catch{}};
+ document.addEventListener('pointerlockchange',releasePointer);releasePointer();
  // ---- lighter rendering --------------------------------------------------------------------------------------------------
  const pixelRatio=()=>Math.min(devicePixelRatio||1,1.5)*MOBILE_TUNE.pixelLevels[mobileState.pixel];
  Ae.setPixelRatio(pixelRatio());Ae.setSize(innerWidth,innerHeight);
