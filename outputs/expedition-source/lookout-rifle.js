@@ -399,7 +399,8 @@ function updateRifleHud(){
   const ready=rifle.cooldown<=0;
   rifleHud.innerHTML=(rifle.range?'Range <b>'+Math.round(rifle.range)+' m</b>':'Range <b>—</b>')+' · '+(rifle.scoped?'Scope <b>'+rifle.zoom.toFixed(1)+'×</b>':'Scope off')+' · '
    +(ready?'<b style="color:#a2d95f">Ready</b>':'<span style="color:#e0b070">Cycling bolt…</span>')
-   +'<br><span style="opacity:.8">'+(mouseLocked()?'Mouse aims · Esc frees the mouse':'Click to capture the mouse · or drag / W A S D')+' · Click / Space fire · Z or right-click scope · Wheel zoom · E get up</span>';
+   +'<br><span style="opacity:.8">'+(window.expedition.mobile?.enabled?'Drag to aim · tap Fire · Scope to zoom in'
+    :(mouseLocked()?'Mouse aims · Esc frees the mouse':'Click to capture the mouse · or drag / W A S D')+' · Click / Space fire · Z or right-click scope · Wheel zoom · E get up')+'</span>';
  }
 }
 const rifleHudBase=pc;

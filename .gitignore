@@ -32,3 +32,4 @@ __pycache__/
 # Mixamo source animations: used by add-mixamo-clips.py, not redistributed (the baked clips are in ranger.glb)
 /Jump.fbx
 /Punching.fbx
+/outputs/expedition-source/mobile-checks.html

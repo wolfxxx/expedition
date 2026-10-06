@@ -12,6 +12,10 @@ new='let lakeD=lakeDistance(i,t),natural=s+r;if(lakeD<12)return -1.65+1.95*Ia(6.
 assert old in html, 'Expected original terrain function'
 html=html.replace(old,new)
 html=html.replace('function We(i,t){',(root/'circuit-layout.js').read_text(encoding='utf-8')+'function lookoutClearing(x,z){return Math.abs(x-18)<5&&z>26&&z<40}function lakeDistance(x,z){let dx=x+22,dz=(z-5)/.8,a=Math.atan2(dz,dx);return Math.hypot(dx,dz)/(1+.09*Math.sin(3*a)+.055*Math.cos(5*a))}function We(i,t){',1)
+# phones (see mobile.js): no antialiasing, which costs a lot of fill rate on a small high-density screen
+old_aa='Ae=new wa({antialias:!0,'
+assert old_aa in html, 'Expected renderer options'
+html=html.replace(old_aa,'Ae=new wa({antialias:!(new URLSearchParams(location.search).has("mobile")||window.EXPEDITION_MOBILE||!new URLSearchParams(location.search).has("desktop")&&matchMedia("(pointer:coarse)").matches&&!matchMedia("(hover:hover)").matches),',1)
 html=html.replace('new Ge(280,280,150,150)','new Ge(280,280,240,240)',1)
 html=html.replace('if(A(it,vt)<4.7||Math.hypot(it-10,vt+8)<7)','if(lookoutClearing(it,vt)||lakeDistance(it,vt)<13||A(it,vt)<4.7||Math.hypot(it-10,vt+8)<7)',1)
 html=html.replace('if(Math.hypot(V,q)<12||A(V,q)<4)','if(lookoutClearing(V,q)||lakeDistance(V,q)<12.6||(Math.abs(V+8.8)<1.8&&q>0&&q<10)||Math.hypot(V,q)<12||A(V,q)<4)',1)
@@ -37,7 +41,7 @@ import json
 _voice=json.loads((root/'voice'/'lines.json').read_text(encoding='utf-8'))
 _clips=[{'id':c['id'],'cat':c['cat'],'text':c['text'],'data':base64.b64encode((root/'voice'/(c['id']+'.mp3')).read_bytes()).decode('ascii')} for c in _voice['lines']+_voice.get('effects',[])]
 voice_module=(root/'mosswick-voice.js').read_text(encoding='utf-8-sig').replace('__VOICE__',json.dumps(_clips))
-html=html.replace(marker,'\n'+(root/'valley.js').read_text(encoding='utf-8')+'\n'+(root/'lookout.js').read_text(encoding='utf-8')+'\n'+(root/'motion.js').read_text(encoding='utf-8')+'\n'+(root/'world-audio.js').read_text(encoding='utf-8-sig')+'\n'+(root/'stair-motion.js').read_text(encoding='utf-8-sig')+'\n'+(root/'camera.js').read_text(encoding='utf-8-sig')+'\n'+(root/'driving.js').read_text(encoding='utf-8')+'\n'+(root/'poison-dwarf.js').read_text(encoding='utf-8-sig')+'\n'+(root/'combat.js').read_text(encoding='utf-8-sig')+'\n'+(root/'lookout-rifle.js').read_text(encoding='utf-8-sig').replace('__RIFLE_GLB__',base64.b64encode((root/'heavy_sniper_rifle.glb').read_bytes()).decode('ascii'))+'\n'+(root/'roadkill.js').read_text(encoding='utf-8-sig')+'\n'+(root/'mouselook.js').read_text(encoding='utf-8-sig')+'\n'+voice_module+'\n'+(root/'rocks.js').read_text(encoding='utf-8-sig')+'\n'+(root/'spring.js').read_text(encoding='utf-8-sig')+'\n'+(root/'spring-life.js').read_text(encoding='utf-8-sig')+'\n'+(root/'landscape.js').read_text(encoding='utf-8-sig')+'\n'+(root/'landscape-trees.js').read_text(encoding='utf-8-sig')+'\n'+(root/'circuit.js').read_text(encoding='utf-8-sig')+'\n'+startup)
+html=html.replace(marker,'\n'+(root/'valley.js').read_text(encoding='utf-8')+'\n'+(root/'lookout.js').read_text(encoding='utf-8')+'\n'+(root/'motion.js').read_text(encoding='utf-8')+'\n'+(root/'world-audio.js').read_text(encoding='utf-8-sig')+'\n'+(root/'stair-motion.js').read_text(encoding='utf-8-sig')+'\n'+(root/'camera.js').read_text(encoding='utf-8-sig')+'\n'+(root/'driving.js').read_text(encoding='utf-8')+'\n'+(root/'poison-dwarf.js').read_text(encoding='utf-8-sig')+'\n'+(root/'combat.js').read_text(encoding='utf-8-sig')+'\n'+(root/'lookout-rifle.js').read_text(encoding='utf-8-sig').replace('__RIFLE_GLB__',base64.b64encode((root/'heavy_sniper_rifle.glb').read_bytes()).decode('ascii'))+'\n'+(root/'roadkill.js').read_text(encoding='utf-8-sig')+'\n'+(root/'mouselook.js').read_text(encoding='utf-8-sig')+'\n'+voice_module+'\n'+(root/'rocks.js').read_text(encoding='utf-8-sig')+'\n'+(root/'spring.js').read_text(encoding='utf-8-sig')+'\n'+(root/'spring-life.js').read_text(encoding='utf-8-sig')+'\n'+(root/'landscape.js').read_text(encoding='utf-8-sig')+'\n'+(root/'landscape-trees.js').read_text(encoding='utf-8-sig')+'\n'+(root/'circuit.js').read_text(encoding='utf-8-sig')+'\n'+(root/'mobile.js').read_text(encoding='utf-8-sig')+'\n'+startup)
 out=root/'Expedition-Wildhaven.html'
 out.write_text(html,encoding='utf-8')
 tests=(root/'checks.js').read_text(encoding='utf-8')
@@ -71,3 +75,5 @@ print('Built',out)
 (root/'landscape-checks.html').write_text(html.replace('window.expedition.ready.then(()=>{Oa();Na();','window.expedition.ready.then(()=>{Oa();'+(root/'landscape-checks.js').read_text(encoding='utf-8-sig')+'Na();',1),encoding='utf-8')
 
 (root/'circuit-checks.html').write_text(html.replace('window.expedition.ready.then(()=>{Oa();Na();','window.expedition.ready.then(()=>{Oa();'+(root/'circuit-checks.js').read_text(encoding='utf-8-sig')+'Na();',1),encoding='utf-8')
+
+(root/'mobile-checks.html').write_text(html.replace('<head>','<head><script>window.EXPEDITION_MOBILE=1</script>',1).replace('window.expedition.ready.then(()=>{Oa();Na();','window.expedition.ready.then(()=>{Oa();'+(root/'mobile-checks.js').read_text(encoding='utf-8-sig')+'Na();',1),encoding='utf-8')
