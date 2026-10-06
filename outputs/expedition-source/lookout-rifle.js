@@ -15,6 +15,10 @@ const RIFLE={
  right:[-.43,.175,0],left:[-.72,.19,0],     // hand targets, in rifle coordinates (x forward, y up, z right)
  eye:[-.43,.462,0],muzzle:[.82,.35,0]
 };
+// Lying down and getting up are the Mixamo push-up-to-standing clip (ranger.glb 'PushUp', baked by add-mixamo-clips.py),
+// played backwards to lie down and forwards to get up; its first frame is the lying pose at the rifle. The clip's root
+// sits under the hips: feetToHips puts it that far ahead of where the feet lie (bodyRoot). rise: seconds to get up or down.
+const PUSH_UP={feetToHips:.78,rise:1.15,duration:1.6};
 const rifleMount=new ee();rifleMount.name='Rifle mount';rifleMount.rotation.order='YXZ';bn.add(rifleMount);
 const rifleReady=HumanRuntime.loadProp('__RIFLE_GLB__',RIFLE.length).then(model=>{
  lookoutRifle=model;model.name='Heavy sniper rifle · lookout';
@@ -38,6 +42,8 @@ function bodyRoot(yaw=rifle.yaw){
  const s=Math.sin(yaw),c=Math.cos(yaw);
  return new L(tx-s*RIFLE.back+c*RIFLE.side,lookoutTop,tz-c*RIFLE.back-s*RIFLE.side);
 }
+// where the character stands to lie down (and stands again after getting up): under the hips of the lying body
+function lieRoot(yaw=rifle.yaw){return bodyRoot(yaw).add(new L(Math.sin(yaw)*PUSH_UP.feetToHips,0,Math.cos(yaw)*PUSH_UP.feetToHips));}
 // The rifle model follows the aim up to a limit; below the limit the butt rises so the bipod never sinks into the deck.
 function placeRifle(){
  const pitch=Mn(rifle.pitch+rifle.kick,-.16,.16),s=Math.sin(rifle.yaw),c=Math.cos(rifle.yaw);
@@ -73,21 +79,27 @@ function toggleScope(on=!rifle.scoped){if(rifle.mode==='aiming')rifle.scoped=on;
 
 // ---- character -----------------------------------------------------------------------------------------------------
 function rifleStep(dt){
- const root=Xt.root,feet=bodyRoot();
+ const root=Xt.root,spot=lieRoot();
  rifle.cooldown=Math.max(0,rifle.cooldown-dt);
  rifle.recoil*=Math.exp(-dt*6);rifle.kick*=Math.exp(-dt*5);
- let handWeight=0;
+ // clip time: 0 is lying at the rifle, PUSH_UP.duration is standing
+ let handWeight=0,clipTime=0,label='Prone at rifle';
  if(rifle.mode==='mounting'){
-  aimToward(rifle.yaw,rifle.pitch);rifle.t+=dt;const t=rifle.t,walk=ease(0,.55,t),before=root.position.clone();
-  root.position.set(lerp(rifle.start.x,feet.x,walk),lookoutTop,lerp(rifle.start.z,feet.z,walk));
+  // walk to the spot, turn to the aim, then the push-up runs backwards: kneel, hands down, lie flat; the hands go to the rifle
+  aimToward(rifle.yaw,rifle.pitch);rifle.t+=dt;const t=rifle.t,walk=ease(0,.55,t),before=root.position.clone(),down=Mn((t-.5)/PUSH_UP.rise,0,1);
+  root.position.set(lerp(rifle.start.x,spot.x,walk),lookoutTop,lerp(rifle.start.z,spot.z,walk));
   root.rotation.y=rifle.start.yaw+uc(rifle.start.yaw,rifle.yaw)*ease(.05,.55,t);
-  rifle.prone=ease(.55,1.5,t);handWeight=ease(.9,1.5,t);
+  rifle.prone=down;handWeight=ease(.72,1,down);clipTime=PUSH_UP.duration*(1-down);label='Lying down at rifle';
   Xt.animate(dt,t<.55?before.distanceTo(root.position)/dt:0,0);
-  if(t>=1.5){rifle.mode='aiming';rifle.prone=1;handWeight=1;}
+  if(down>0)Xt.applyClip('PushUp',clipTime,ease(0,.12,down));
+  if(down>=1){rifle.mode='aiming';rifle.prone=1;handWeight=1;}
  }else if(rifle.mode==='dismounting'){
-  aimToward(rifle.yaw,rifle.pitch);rifle.t+=dt;rifle.prone=1-ease(0,.9,rifle.t);handWeight=1-ease(0,.4,rifle.t);
-  root.position.copy(feet);root.rotation.y=rifle.yaw;Xt.animate(dt,0,0);
-  if(rifle.t>=.9){
+  // let go of the rifle, then the push-up runs forwards to standing
+  aimToward(rifle.yaw,rifle.pitch);rifle.t+=dt;const up=Mn((rifle.t-.15)/PUSH_UP.rise,0,1);
+  rifle.prone=1-up;handWeight=1-ease(0,.25,rifle.t);clipTime=PUSH_UP.duration*up;label='Getting up from rifle';
+  root.position.copy(spot);root.rotation.y=rifle.yaw;Xt.animate(dt,0,0);
+  Xt.applyClip('PushUp',clipTime,1-ease(.9,1,up));
+  if(up>=1){
    Wn=rifle.yaw;bs=.29;Da=rifle.held.Da||6;rifle.mode='idle';rifle.prone=0;rifleBusy=false;rifle.scope=0;
    lookoutRifle.visible=true;Xt.setFirstPerson(false);Xt.animate(0,0,0);return;
   }
@@ -95,12 +107,13 @@ function rifleStep(dt){
   const input=Nu(),zoom=rifle.scope>.5?55/scopeFov():1;
   aimToward(rifle.want.yaw-input.x*dt*.7/zoom,rifle.want.pitch+input.y*dt*.45/zoom);
   const follow=1-Math.exp(-dt*32);rifle.yaw+=(rifle.want.yaw-rifle.yaw)*follow;rifle.pitch+=(rifle.want.pitch-rifle.pitch)*follow;
-  root.position.copy(feet);root.rotation.y=rifle.yaw;handWeight=1;Xt.animate(dt,0,0);
+  root.position.copy(spot);root.rotation.y=rifle.yaw;handWeight=1;Xt.animate(dt,0,0);Xt.applyClip('PushUp',0,1);
  }
  placeRifle();
  // The right hand wraps the pistol grip (handshake grip: fingers forward, palm facing left); the left hand cups the butt from below.
  const q=rifleMount.quaternion,forward=new L(0,0,1).applyQuaternion(q),left=new L(1,0,0).applyQuaternion(q),up=new L(0,1,0).applyQuaternion(q);
- Xt.poseMotion({label:'Prone at rifle',prone:{amount:rifle.prone,lift:.15},fist:{Right:.7*handWeight,Left:.45*handWeight},hands:{
+ const lying=1-Mn(clipTime/(PUSH_UP.duration*.25),0,1); // only near the lying end of the clip do the head and hands join the rifle
+ Xt.poseMotion({label,raiseHead:lying,fist:{Right:.7*handWeight,Left:.45*handWeight},hands:{
   Right:{position:rifleAt(RIFLE.right).toArray(),world:true,weight:handWeight,pole:[-.55,-.75,-.15],orient:{fingers:forward.toArray(),palm:left.toArray()}}, // elbows splay out and rest on the deck
   Left:{position:rifleAt(RIFLE.left).toArray(),world:true,weight:handWeight,pole:[.9,-.15,-.4],orient:{fingers:forward.toArray(),palm:up.toArray()}}}});
 }

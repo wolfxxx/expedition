@@ -54,7 +54,7 @@ export function create(encoded) {
   // One-shot clips (jump, punches) are not looped by the mixer. The game samples them at a time of its choosing (so a jump's
   // flight can follow the physics and a punch lands on its impact frame) and blends them over the animated pose.
   // mask 'upper' keeps the legs on the walk/run animation (a punch thrown on the move).
-  const ONE_SHOT=new Set(['Jump','Punch','PunchLeft']),sampled={};
+  const ONE_SHOT=new Set(['Jump','Punch','PunchLeft','PushUp']),sampled={};
   const UPPER=/Spine|Neck|Head|Clavicle|UpperArm|Forearm|Hand|Finger/;
   function prepareSampled(clip){
     const tracks=[];
@@ -176,6 +176,8 @@ export function create(encoded) {
     if(prone){tilt('Spine1',-.16*prone);tilt('Spine2',-.20*prone);tilt('Neck',-.42*prone);tilt('Head',-.52*prone);tilt('LeftFoot',1.35*prone);tilt('RightFoot',1.35*prone);}
     const twist=(name,angle)=>{const bone=bones[name];const axis=new THREE.Vector3(0,1,0).applyQuaternion(root.getWorldQuaternion(new THREE.Quaternion()));const q=bone.getWorldQuaternion(new THREE.Quaternion()).premultiply(new THREE.Quaternion().setFromAxisAngle(axis,angle));bone.quaternion.copy(bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(q));bone.updateMatrixWorld(true);};
     // Hips turn first so the legs, then the spine, carry the rotation up into the shoulders.
+    // Lying on the front (the push-up clip at the lookout rifle): lift the chest and head to look forward along the ground.
+    if(spec.raiseHead){const a=spec.raiseHead;tilt('Spine1',-.10*a);tilt('Spine2',-.16*a);tilt('Neck',-.40*a);tilt('Head',-.42*a);}
     if(spec.hipTwist)twist('Hips',spec.hipTwist);
     if(spec.twist)twist('Spine',spec.twist);
     // Shoulder protraction: a positive angle swings the right shoulder forward, a negative one the left.

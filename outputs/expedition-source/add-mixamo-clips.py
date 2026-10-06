@@ -1,4 +1,4 @@
-# Add the Mixamo jump and punch (../../Jump.fbx, ../../Punching.fbx) to the ranger as baked clips, then re-export ranger.glb.
+# Add the Mixamo jump, punch and push-up-to-standing (../../Jump.fbx, ../../Punching.fbx, ../../Push Up To Idle.fbx) to the ranger as baked clips, then re-export ranger.glb.
 # Run with Blender 5.2:  blender -b --python add-mixamo-clips.py
 # Retargeting: for every mapped bone, the source's rotation away from its own rest pose is applied in world space to the
 # ranger's bone, after first turning the ranger's rest bone to point the way the source's rest bone points (the two
@@ -11,7 +11,7 @@ from mathutils import Quaternion,Vector
 
 here=Path(__file__).resolve().parent
 sources=here.parent.parent
-CLIPS=[('Jump','Jump.fbx',False),('Punch','Punching.fbx',False),('PunchLeft','Punching.fbx',True)]
+CLIPS=[('Jump','Jump.fbx',False),('Punch','Punching.fbx',False),('PunchLeft','Punching.fbx',True),('PushUp','Push Up To Idle.fbx',False)]
 
 M='mixamorig:'
 pairs={'Hips':'Pelvis','Spine':'Spine','Spine1':'Spine1','Spine2':'Spine2','Neck':'Neck','Head':'Head'}

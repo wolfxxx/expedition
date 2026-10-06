@@ -16,6 +16,10 @@ html=html.replace('function We(i,t){',(root/'circuit-layout.js').read_text(encod
 old_aa='Ae=new wa({antialias:!0,'
 assert old_aa in html, 'Expected renderer options'
 html=html.replace(old_aa,'Ae=new wa({antialias:!(new URLSearchParams(location.search).has("mobile")||window.EXPEDITION_MOBILE||!new URLSearchParams(location.search).has("desktop")&&matchMedia("(pointer:coarse)").matches&&!matchMedia("(hover:hover)").matches),',1)
+# vehicle doors, hood and tailgate swing about twice as fast (getting in and out, motion.js CAR_TIMES)
+old_door='Math.max(0,Math.min(ot,.1))*6)'
+assert old_door in html, 'Expected panel animation rate'
+html=html.replace(old_door,'Math.max(0,Math.min(ot,.1))*14)',1)
 html=html.replace('new Ge(280,280,150,150)','new Ge(280,280,240,240)',1)
 html=html.replace('if(A(it,vt)<4.7||Math.hypot(it-10,vt+8)<7)','if(lookoutClearing(it,vt)||lakeDistance(it,vt)<13||A(it,vt)<4.7||Math.hypot(it-10,vt+8)<7)',1)
 html=html.replace('if(Math.hypot(V,q)<12||A(V,q)<4)','if(lookoutClearing(V,q)||lakeDistance(V,q)<12.6||(Math.abs(V+8.8)<1.8&&q>0&&q<10)||Math.hypot(V,q)<12||A(V,q)<4)',1)

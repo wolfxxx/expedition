@@ -33,7 +33,8 @@ stand(tx+.3,tz-1.5);pc();check('Prompt appears on the deck beside the rifle',R.r
 key('KeyE');expedition.advance(.4);check('E starts getting down and locks out movement',rifle.mode==='mounting'&&rifleBusy);
 expedition.advance(1.4);const s1=rifleNow();
 check('Reaches the prone firing position',s1.mode==='aiming'&&s1.prone===1);
-{const feet=bodyRoot();check('Feet are behind the stock, on the deck',Math.abs(Xt.root.position.x-feet.x)<.001&&Math.abs(Xt.root.position.z-feet.z)<.001&&Math.abs(Xt.root.position.y-lookoutTop)<.001);}
+{const feet=bodyRoot(),spot=lieRoot(),j=Xt.getPose().joints,foot=side=>Xt.root.localToWorld(new L(...j[side+'Foot']));
+ check('Feet are behind the stock, on the deck',Math.abs(Xt.root.position.x-spot.x)<.001&&Math.abs(Xt.root.position.z-spot.z)<.001&&Math.abs(Xt.root.position.y-lookoutTop)<.001&&['Left','Right'].every(side=>{const f=foot(side);return Math.hypot(f.x-feet.x,f.z-feet.z)<.25&&f.y-lookoutTop<.3;}));}
 // does the lying body fit on the deck at every heading?
 {let worstReach=0,lowest=9,highest=0,cameraReach=0,flat=true;
  for(let i=0;i<24;i++){
@@ -144,7 +145,7 @@ if(spot){
  check('A shot into the sky hits nothing',R.cast(eye,new L(0,.3,.95)).kind==='sky');}
 // ---- getting up ----
 key('KeyE');expedition.advance(.3);check('E begins getting up',rifleNow().mode==='dismounting');
-expedition.advance(.8);check('Back on foot and free to move',rifleNow().mode==='idle'&&!rifleBusy&&Te==='walking');
+expedition.advance(1.2);check('Back on foot and free to move',rifleNow().mode==='idle'&&!rifleBusy&&Te==='walking');
 {const j=Xt.getPose().joints;check('Standing upright again',j.Head[1]>1.4);}
 key('Space');check('Jumping works again',jumpPhase==='anticipation');expedition.advance(1.5);
 check('Walking camera field of view restored',Math.abs(Ze.fov-55)<.01);

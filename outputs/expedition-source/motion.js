@@ -86,6 +86,9 @@ t_=function(dt){
 const doorAvailable=dc;dc=()=>jumpPhase==='grounded'&&doorAvailable();
 const resetMovement=Oa;oe('resetBtn').removeEventListener('click',resetMovement);Oa=function(){jumpPhase='grounded';jumpLandMoving=false;jumpTime=jumpHeight=jumpVelocity=0;jumpMomentum.set(0,0,0);resetMovement();};oe('resetBtn').addEventListener('click',Oa);
 
+// Getting in and out (s): jog to the door, reach for the handle, swing it open, climb in or out, pull it shut. The door
+// itself swings at the rate build.py gives the vehicle panels, fast enough to be open before the climb starts.
+const CAR_TIMES={approachSpeed:3.2,reach:.2,open:.28,climb:.9,close:.25};
 function driverPad(){const p=Es(new L(1.62,0,-.32));p.y=Je.height(p.x,p.z);return p;}
 function clearPad(p){return Math.hypot(p.x,p.z)<87.5&&!Je.colliders.some(c=>Math.hypot(p.x-c.x,p.z-c.z)<c.r+.42);}
 function stepArc(a,b,u,lift){const t=ease(0,1,u),p=lerpPoint(a,b,t);p.y+=Math.sin(Math.PI*t)*lift;return p;}
@@ -123,7 +126,7 @@ Uu=function(){
     const pad=driverPad();if(!clearPad(pad)){hi('The driverâ€™s door needs more room.');return;}
     const local=zt.root.worldToLocal(Xt.root.position.clone()),corner=Es(new L(Math.max(1.62,local.x),0,local.z));corner.y=Je.height(corner.x,corner.z);
     const distance=Xt.root.position.distanceTo(corner)+corner.distanceTo(pad);
-    Le={kind:'enter',phase:'approach',time:0,from:Xt.root.position.clone(),corner,pad,approachDuration:Math.max(.3,distance/1.55),yaw:Xt.root.rotation.y};
+    Le={kind:'enter',phase:'approach',time:0,from:Xt.root.position.clone(),corner,pad,approachDuration:Math.max(.2,distance/CAR_TIMES.approachSpeed),yaw:Xt.root.rotation.y};
     Te='entering';Ni.set(0,0,0);Ue.clear();pe.x=pe.y=0;Fi='chase';Er=uc(Xe,Wn);
   }else if(Te==='driving'){
     if(Math.abs(le)>.6){hi('Stop the car before getting out.');return;}
@@ -145,24 +148,24 @@ s_=function(dt){
     Xt.animate(dt,speed,0);
     if(t>=Le.approachDuration){Le.yaw=Xt.root.rotation.y;nextPhase('reach');}
   }else if(Le.phase==='reach'){
-    Xt.root.position.copy(Le.pad);Xt.root.rotation.y=Le.yaw+uc(Le.yaw,Xe-Math.PI/2)*ease(0,.4,t);
+    Xt.root.position.copy(Le.pad);const r=CAR_TIMES.reach;Xt.root.rotation.y=Le.yaw+uc(Le.yaw,Xe-Math.PI/2)*ease(0,r*.9,t);
     Xt.animate(dt,0,0);const feet=transitionFeet(0);
-    Xt.poseMotion({label:'Reach for door',lean:.08*ease(0,.4,t),feet:{Left:contact(feet.Left),Right:contact(feet.Right)},hands:{Right:contact(handlePoint(),ease(0,.4,t))}});
-    if(t>=.45){zt.setOpen('driver',true);nextPhase('open');}
+    Xt.poseMotion({label:'Reach for door',lean:.08*ease(0,r*.9,t),feet:{Left:contact(feet.Left),Right:contact(feet.Right)},hands:{Right:contact(handlePoint(),ease(0,r*.9,t))}});
+    if(t>=r){zt.setOpen('driver',true);nextPhase('open');}
   }else if(Le.phase==='open'){
     if(Le.kind==='enter'){
       Xt.animate(dt,0,0);const feet=transitionFeet(0);
-      Xt.poseMotion({label:'Open driver door',feet:{Left:contact(feet.Left),Right:contact(feet.Right)},hands:{Right:contact(handlePoint(),1-ease(.25,.65,t))}});
+      Xt.poseMotion({label:'Open driver door',feet:{Left:contact(feet.Left),Right:contact(feet.Right)},hands:{Right:contact(handlePoint(),1-ease(CAR_TIMES.open*.37,CAR_TIMES.open*.95,t))}});
     }else Xt.animate(dt,0,1);
-    if(t>=.68)nextPhase('climb');
+    if(t>=CAR_TIMES.open)nextPhase('climb');
   }else if(Le.phase==='climb'){
-    const progress=Mn(t/2.05,0,1);climbingPose(dt,Le.kind==='enter'?progress:1-progress);
+    const progress=Mn(t/CAR_TIMES.climb,0,1);climbingPose(dt,Le.kind==='enter'?progress:1-progress);
     if(progress>=1){zt.setOpen('driver',false);nextPhase('close');}
   }else{
     if(Le.kind==='enter')Xt.animate(dt,0,1);
     else{Xt.root.position.copy(Le.pad);Xt.animate(dt,0,0);}
-    Xt.poseMotion({label:'Close driver door',hands:{[Le.kind==='enter'?'Left':'Right']:contact(handlePoint(),.65*Math.sin(Math.PI*Mn(t/.5,0,1)))}});
-    if(t>=.5){
+    Xt.poseMotion({label:'Close driver door',hands:{[Le.kind==='enter'?'Left':'Right']:contact(handlePoint(),.65*Math.sin(Math.PI*Mn(t/CAR_TIMES.close,0,1)))}});
+    if(t>=CAR_TIMES.close){
       if(Le.kind==='enter'){
         zt.root.attach(Xt.root);Xt.root.position.copy(wu);Xt.root.rotation.set(0,0,0);Xt.animate(0,0,1);Te='driving';ui||zt.startEngine().catch(()=>hi('Engine sound unavailable.'));
       }else{Te='walking';Wn=Xe-Math.PI/2;Ni.set(0,0,0);zt.stopEngine();Xt.animate(0,0,0);}
