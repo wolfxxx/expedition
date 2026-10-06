@@ -57,7 +57,7 @@ lockOn();pc();check('Hint says Mouse Look once captured',oe('controlText').inner
 fresh();lockOn();Xt.root.position.set(tx+.3,lookoutTop,tz-1.5);Xt.root.rotation.y=0;Wn=0;fc(1,true);
 {expedition.rifle.mount();expedition.advance(1.8);const y=expedition.getState().rifle.yaw,w=Wn;move(100,0,0);
  check('Aiming the rifle with the captured mouse still works, and does not turn the walking camera',expedition.getState().rifle.yaw<y-.1&&Wn===w);
- key=code=>dispatchEvent(new KeyboardEvent('keydown',{code,bubbles:true}));key('KeyE');expedition.advance(1.2);
+ key=code=>dispatchEvent(new KeyboardEvent('keydown',{code,bubbles:true}));key('KeyE');expedition.advance(1.6); // getting up (the push-up clip) takes 1.3 s
  const w2=Wn;move(100,0,0);check('After getting up the mouse stays captured and looks around',expedition.getState().rifle.mode==='idle'&&Wn<w2-.2);}
 lockOff();Oa();
 const pre=document.createElement('pre');pre.id='mouselook-results';pre.hidden=true;pre.textContent=JSON.stringify({results});document.body.append(pre);
