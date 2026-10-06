@@ -11,6 +11,12 @@ pointer('pointerdown',100);pointer('pointerup',100);check('Left click starts pun
 expedition.advance(.0833);const windPose=Xt.getPose().joints;expedition.advance(.1);const strikePose=Xt.getPose().joints;
 const hand=combat.side+'Hand',arm=combat.side+'Arm'; // clicks alternate right cross / left jab
 check('Striking fist drives forward more than 30 cm (the motion-captured cross)',strikePose[hand][2]-windPose[hand][2]>.30);
+{// thrown while running, the punch still goes forward (only the upper body plays the clip; the torso must not keep the stance's hip turn)
+ Oa();Xt.root.position.set(-2,world.height(-2,-14),-14);Wn=Math.PI/2;Xt.root.rotation.y=Wn;Ue.add('KeyW');Ue.add('ShiftLeft');for(let i=0;i<60;i++)Fu(1/60);
+ const fist=[];for(let k=0;k<2;k++){startPunch();const side=combat.side;for(let i=0;i<11;i++)Fu(1/60);const j=Xt.getPose().joints;fist.push({side,hand:j[side+'Hand'],planted:combat.planted});for(let i=0;i<30;i++)Fu(1/60);}
+ Ue.delete('KeyW');Ue.delete('ShiftLeft');
+ check('Punching on the run, both fists reach forward in front of the body, not out to the side',fist.every(f=>!f.planted&&f.hand[2]>.30&&Math.abs(f.hand[0])<.32),JSON.stringify(fist.map(f=>[f.side,f.hand.map(v=>+v.toFixed(2))])));
+ Oa();}
 check('Shoulder drives forward with torso',strikePose[arm][2]-windPose[arm][2]>.04);
 check('Punches alternate between right and left hands',(()=>{expedition.advance(.6);combat.swings=0;startPunch();const a=combat.side;expedition.advance(.6);startPunch();const b=combat.side;expedition.advance(.6);return a==='Right'&&b==='Left';})());
 const p=Xt.root.position;Ze.position.set(p.x+2,p.y+1.9,p.z+2.5);Ze.fov=50;Ze.updateProjectionMatrix();Ze.lookAt(p.x,p.y+.9,p.z+.5);Fu=()=>{};

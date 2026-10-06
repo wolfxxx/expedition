@@ -61,18 +61,33 @@ export function create(encoded) {
     for(const track of clip.tracks){
       const {nodeName,propertyName}=THREE.PropertyBinding.parseTrackName(track.name),node=model.getObjectByName(nodeName);
       if(!node||!['quaternion','position'].includes(propertyName))continue;
-      tracks.push({node,property:propertyName,interpolant:track.createInterpolant(),upper:UPPER.test(nodeName)&&!/Pelvis/.test(nodeName)});
+      tracks.push({node,property:propertyName,interpolant:track.createInterpolant(),upper:UPPER.test(nodeName)&&!/Pelvis/.test(nodeName),
+        pelvis:/Pelvis$/.test(nodeName)&&propertyName==='quaternion',spineRoot:/Spine$/.test(nodeName)&&propertyName==='quaternion'});
     }
-    sampled[clip.name]={duration:clip.duration,tracks};
+    sampled[clip.name]={duration:clip.duration,tracks,pelvis:tracks.find(t=>t.pelvis),spine:tracks.find(t=>t.spineRoot)};
   }
-  const sampledQ=new THREE.Quaternion(),sampledP=new THREE.Vector3();
+  const sampledQ=new THREE.Quaternion(),sampledP=new THREE.Vector3(),upperFrame=new THREE.Quaternion(),upperClip=new THREE.Quaternion(),upperHips=new THREE.Quaternion();
   function applyClip(name,time,weight=1,mask=null){
     const clip=sampled[name];if(!loaded||!clip||weight<=0)return;
     const t=THREE.MathUtils.clamp(time,0,clip.duration);
     for(const track of clip.tracks){
       if(mask==='upper'&&!track.upper)continue;
       const value=track.interpolant.evaluate(t);
-      if(track.property==='quaternion'){sampledQ.fromArray(value);track.node.quaternion.slerp(sampledQ,weight);}
+      if(track.property==='quaternion'){
+        sampledQ.fromArray(value);
+        // Upper body only (a punch on the move): the clip's spine is relative to its own hips, which in a boxing stance are
+        // turned well away from the shoulders. Over the run's forward-facing hips that turn would swing the torso (and the
+        // arms) out to the side, so the spine is given the clip's orientation relative to the body instead of to the hips.
+        if(mask==='upper'&&track.spineRoot&&clip.pelvis){
+          const pelvis=clip.pelvis.node,parent=pelvis.parent;
+          parent.getWorldQuaternion(upperFrame);
+          upperClip.fromArray(clip.pelvis.interpolant.evaluate(t));
+          upperFrame.multiply(upperClip).multiply(sampledQ);             // where the clip's spine faces, in the world
+          pelvis.getWorldQuaternion(upperHips).invert();
+          sampledQ.copy(upperHips.multiply(upperFrame));                    // ...as a turn from the hips the body has now
+        }
+        track.node.quaternion.slerp(sampledQ,weight);
+      }
       else{sampledP.fromArray(value);track.node.position.lerp(sampledP,weight);}
     }
     model.updateMatrixWorld(true);
